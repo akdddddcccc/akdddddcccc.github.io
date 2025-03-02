@@ -1,0 +1,14 @@
+@media screen and (min-width: 1500px) {
+    .background{
+        width: 100%;
+        background: #080707
+    }
+
+}
+@media screen and (max-width: 1500px) {
+    .background{
+        width: 2500px;
+        background: #080707
+    }
+
+}
