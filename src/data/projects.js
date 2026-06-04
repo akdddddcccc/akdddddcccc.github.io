@@ -591,9 +591,9 @@ export const projects = [
       "en": {
         "title": "parameterisation——层峦",
         "description": "",
-        "hero": "/images/study/参数化/1.png",
+        "hero": "/images/study/参数化/1.webp",
         "images": [
-          "/images/study/参数化/2.jpg"
+          "/images/study/参数化/2.webp"
         ],
         "iframes": [],
         "pdfs": [],
@@ -621,7 +621,7 @@ export const projects = [
     "sourceFile": "页面优化.html",
     "category": "work",
     "discipline": "ui",
-    "image": "/images/work/web_upgrade.svg",
+    "image": "/images/work/页面优化/1.png",
     "title": {
       "en": "页面优化",
       "zh": "页面优化"
