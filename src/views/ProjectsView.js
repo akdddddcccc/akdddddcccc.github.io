@@ -12,6 +12,17 @@ export default {
       required: true
     }
   },
+  data() {
+    return {
+      filterIndicator: {
+        ready: false,
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0
+      }
+    };
+  },
   computed: {
     activeKind() {
       return ["all", "visual", "ui", "product", "others", "unpublished", "vibe-coding"].includes(this.kind) ? this.kind : "all";
@@ -22,16 +33,59 @@ export default {
     projects() {
       if (this.activeKind === "all") return projects;
       return projects.filter((project) => project.discipline === this.activeKind);
+    },
+    filterIndicatorStyle() {
+      return {
+        "--filter-indicator-x": `${this.filterIndicator.x}px`,
+        "--filter-indicator-y": `${this.filterIndicator.y}px`,
+        "--filter-indicator-width": `${this.filterIndicator.width}px`,
+        "--filter-indicator-height": `${this.filterIndicator.height}px`
+      };
     }
   },
+  watch: {
+    activeKind() {
+      this.updateFilterIndicator();
+    },
+    lang() {
+      this.updateFilterIndicator();
+    }
+  },
+  mounted() {
+    this.updateFilterIndicator();
+    window.addEventListener("resize", this.updateFilterIndicator);
+  },
+  beforeUnmount() {
+    window.removeEventListener("resize", this.updateFilterIndicator);
+  },
   methods: {
+    updateFilterIndicator() {
+      this.$nextTick(() => {
+        const activeButton = this.$el.querySelector(".filter-button.active");
+        if (!activeButton) return;
+
+        this.filterIndicator = {
+          ready: true,
+          x: activeButton.offsetLeft,
+          y: activeButton.offsetTop,
+          width: activeButton.offsetWidth,
+          height: activeButton.offsetHeight
+        };
+      });
+    },
     projectHref(project) {
       return project.closed ? null : `#/${this.lang}/project/${project.slug}`;
     }
   },
   template: `
     <section class="project-browser" aria-label="Projects">
-      <div class="project-filterbar" aria-label="Project categories">
+      <div
+        class="project-filterbar"
+        :class="{ 'project-filterbar--ready': filterIndicator.ready }"
+        :style="filterIndicatorStyle"
+        aria-label="Project categories"
+      >
+        <span class="project-filterbar__indicator" aria-hidden="true"></span>
         <a
           v-for="filter in filters"
           :key="filter.key"

@@ -78,7 +78,7 @@ export const content = {
     }
   },
   contact: {
-    image: "/images/概念画像 1.webp",
+    image: "/images/concept-portrait-hd.png",
     items: [
       { label: "WeChat", value: "wxsbsdwlsjxy" },
       { label: "ins", value: "justinyang265" },

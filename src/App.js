@@ -27,7 +27,9 @@ export default {
     const route = reactive({ path: getHashPath() });
     const updateRoute = () => {
       route.path = getHashPath();
-      window.scrollTo({ top: 0, behavior: "instant" });
+    };
+    const scrollPageTop = () => {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
     };
 
     onMounted(() => window.addEventListener("hashchange", updateRoute));
@@ -47,6 +49,7 @@ export default {
       return page.value;
     });
     const returnKind = computed(() => project.value?.discipline || kind.value || "all");
+    const viewKey = computed(() => route.path);
 
     return {
       content,
@@ -56,32 +59,46 @@ export default {
       kind,
       project,
       activeSection,
-      returnKind
+      returnKind,
+      viewKey,
+      scrollPageTop
     };
   },
   template: `
-    <HomeView v-if="!lang" />
-    <template v-else>
-      <SiteHeader
-        :lang="lang"
-        :active-section="activeSection"
-        :return-kind="returnKind"
-        :compact="page === 'project'"
-      />
-      <main>
-        <AboutView v-if="page === 'about'" :lang="lang" />
-        <ContactView v-else-if="page === 'contact'" :lang="lang" />
-        <ProjectDetailView
-          v-else-if="page === 'project'"
+    <Transition name="site-shell" mode="out-in" appear @before-enter="scrollPageTop">
+      <HomeView v-if="!lang" key="language-home" />
+      <div v-else class="site-shell" :key="'site-' + lang">
+        <SiteHeader
           :lang="lang"
-          :project="project"
+          :active-section="activeSection"
+          :return-kind="returnKind"
+          :compact="page === 'project'"
         />
-        <ProjectsView
-          v-else
-          :lang="lang"
-          :kind="kind"
-        />
-      </main>
-    </template>
+        <main class="site-content">
+          <Transition
+            name="page-view"
+            mode="out-in"
+            appear
+            :duration="{ enter: 900, leave: 220 }"
+            @before-enter="scrollPageTop"
+          >
+            <AboutView v-if="page === 'about'" :key="viewKey" :lang="lang" />
+            <ContactView v-else-if="page === 'contact'" :key="viewKey" :lang="lang" />
+            <ProjectDetailView
+              v-else-if="page === 'project'"
+              :key="viewKey"
+              :lang="lang"
+              :project="project"
+            />
+            <ProjectsView
+              v-else
+              :key="'projects-' + lang"
+              :lang="lang"
+              :kind="kind"
+            />
+          </Transition>
+        </main>
+      </div>
+    </Transition>
   `
 };

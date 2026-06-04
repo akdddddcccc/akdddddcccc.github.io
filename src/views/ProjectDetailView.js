@@ -12,8 +12,22 @@ export default {
   },
   data() {
     return {
-      loadedCodeBlocks: []
+      loadedCodeBlocks: [],
+      loadedEmbeds: {},
+      loadingTimer: null,
+      loadingWordIndex: 0,
+      lightboxImage: ""
     };
+  },
+  mounted() {
+    this.loadingTimer = window.setInterval(() => {
+      this.loadingWordIndex += 1;
+    }, 1100);
+    window.addEventListener("keydown", this.handleLightboxKeydown);
+  },
+  beforeUnmount() {
+    window.clearInterval(this.loadingTimer);
+    window.removeEventListener("keydown", this.handleLightboxKeydown);
   },
   computed: {
     detail() {
@@ -50,9 +64,22 @@ export default {
         requiresVpn: this.embedRequiresVpn(src),
         figmaUrl: this.figmaUrl(src)
       }));
+    },
+    loadingWords() {
+      if (this.lang === "zh") return ["等待中···", "加载中···", "读取中···"];
+      return ["Thinking···", "Reading···", "Loading···", "Working···"];
+    },
+    loadingMessage() {
+      return this.loadingWords[this.loadingWordIndex % this.loadingWords.length];
     }
   },
   watch: {
+    project: {
+      handler() {
+        this.loadedEmbeds = {};
+        this.lightboxImage = "";
+      }
+    },
     codeBlockRefs: {
       handler() {
         this.loadCodeBlocks();
@@ -147,6 +174,39 @@ export default {
       if (!navigator.clipboard || !block.code) return;
       await navigator.clipboard.writeText(block.code);
     },
+    isEmbedLoading(src) {
+      return !this.loadedEmbeds[src];
+    },
+    markEmbedLoaded(src) {
+      this.loadedEmbeds = {
+        ...this.loadedEmbeds,
+        [src]: true
+      };
+    },
+    outputImageClass(image) {
+      if (this.project?.slug !== "takeaway-logo") return {};
+      return {
+        "output-gallery__item--logo": !image.endsWith("/2.png"),
+        "output-gallery__item--interface": image.endsWith("/2.png")
+      };
+    },
+    isZoomableOutputImage(image) {
+      if (!this.project) return false;
+      if (this.project.slug === "takeaway-logo") return !image.endsWith("/2.png");
+      return true;
+    },
+    openOutputLightbox(image) {
+      if (!this.isZoomableOutputImage(image)) return;
+      this.lightboxImage = image;
+    },
+    closeOutputLightbox() {
+      this.lightboxImage = "";
+    },
+    handleLightboxKeydown(event) {
+      if (event.key === "Escape" && this.lightboxImage) {
+        this.closeOutputLightbox();
+      }
+    },
     disciplineLabel(key) {
       const labels = {
         en: {
@@ -166,7 +226,7 @@ export default {
     }
   },
   template: `
-    <section v-if="project" class="project-detail">
+    <section v-if="project" class="project-detail" :class="'project-detail--' + project.slug">
       <div class="project-hero">
         <img :src="hero" :alt="title" />
         <div class="project-copy">
@@ -188,8 +248,40 @@ export default {
       </section>
 
       <section v-if="outputImages.length" class="output-gallery">
-        <img v-for="image in outputImages" :key="image" :src="image" :alt="title" />
+        <figure
+          v-for="image in outputImages"
+          :key="image"
+          class="output-gallery__item"
+          :class="[outputImageClass(image), { 'output-gallery__item--zoomable': isZoomableOutputImage(image) }]"
+        >
+          <button
+            v-if="isZoomableOutputImage(image)"
+            type="button"
+            class="output-gallery__button"
+            :aria-label="lang === 'zh' ? '全屏查看图片' : 'View image fullscreen'"
+            @click="openOutputLightbox(image)"
+          >
+            <img class="output-gallery__image" :src="image" :alt="title" />
+          </button>
+          <img v-else class="output-gallery__image" :src="image" :alt="title" />
+        </figure>
       </section>
+
+      <Transition name="image-lightbox">
+        <div
+          v-if="lightboxImage"
+          class="image-lightbox"
+          role="dialog"
+          aria-modal="true"
+          :aria-label="title"
+          @click.self="closeOutputLightbox"
+        >
+          <button type="button" class="image-lightbox__close" @click="closeOutputLightbox">
+            {{ lang === 'zh' ? '返回' : 'Back' }}
+          </button>
+          <img class="image-lightbox__image" :src="lightboxImage" :alt="title" />
+        </div>
+      </Transition>
 
       <section v-if="loadedCodeBlocks.length" class="code-stack">
         <article v-for="block in loadedCodeBlocks" :key="block.src" class="code-panel">
@@ -210,14 +302,33 @@ export default {
       </section>
 
       <section v-if="embeds.length" class="embed-stack">
-        <article v-for="embed in embeds" :key="embed.src" class="embed-panel">
+        <article
+          v-for="embed in embeds"
+          :key="embed.src"
+          class="embed-panel"
+          :class="{
+            'embed-panel--figma': embed.label === 'Figma',
+            'embed-panel--loading': embed.label === 'Figma' && isEmbedLoading(embed.src)
+          }"
+        >
           <h2>{{ embed.label }}</h2>
+          <div
+            v-if="embed.label === 'Figma' && isEmbedLoading(embed.src)"
+            class="figma-loader"
+            role="status"
+            aria-live="polite"
+            :aria-label="loadingMessage"
+          >
+            <span :key="loadingMessage" class="figma-loader__message">{{ loadingMessage }}</span>
+            <span class="figma-loader__rule"></span>
+          </div>
           <iframe
             :key="embed.src + '-' + project.slug"
             :src="embed.src"
             loading="lazy"
             allowfullscreen
             referrerpolicy="strict-origin-when-cross-origin"
+            @load="markEmbedLoaded(embed.src)"
           ></iframe>
           <p v-if="embed.requiresVpn" class="embed-note">
             {{ lang === 'zh' ? '需 VPN 观看' : 'VPN required to view' }}
