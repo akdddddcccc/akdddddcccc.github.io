@@ -430,6 +430,13 @@ a {
   line-height: 1;
 }
 
+.title-separator {
+  display: inline-block;
+  margin: 0 0.18em;
+  color: rgba(11, 11, 15, 0.44);
+  font-weight: 300;
+}
+
 .project-copy p {
   line-height: 1.8;
 }

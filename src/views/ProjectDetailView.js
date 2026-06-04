@@ -25,6 +25,9 @@ export default {
     description() {
       return this.detail.description || this.title;
     },
+    titleParts() {
+      return this.buildTitleParts(this.title);
+    },
     hero() {
       return this.detail.hero || this.project?.image;
     },
@@ -84,6 +87,37 @@ export default {
     languageLabel(language) {
       return (language || "text").toUpperCase();
     },
+    buildTitleParts(value) {
+      const parts = [];
+      const source = value || "";
+      const separatorPattern = /\s*(———|——|—|\s+-\s+)\s*/g;
+      let lastIndex = 0;
+      let match;
+
+      while ((match = separatorPattern.exec(source))) {
+        if (match.index > lastIndex) {
+          parts.push({
+            type: "text",
+            value: source.slice(lastIndex, match.index)
+          });
+        }
+
+        parts.push({
+          type: "separator",
+          value: "·"
+        });
+        lastIndex = separatorPattern.lastIndex;
+      }
+
+      if (lastIndex < source.length) {
+        parts.push({
+          type: "text",
+          value: source.slice(lastIndex)
+        });
+      }
+
+      return parts.length ? parts : [{ type: "text", value: source }];
+    },
     async loadCodeBlocks() {
       const refs = this.codeBlockRefs;
       if (!refs.length) {
@@ -137,7 +171,12 @@ export default {
         <img :src="hero" :alt="title" />
         <div class="project-copy">
           <p class="project-kicker">{{ disciplineLabel(project.discipline) }}</p>
-          <h1>{{ title }}</h1>
+          <h1>
+            <template v-for="(part, index) in titleParts" :key="index">
+              <span v-if="part.type === 'separator'" class="title-separator">{{ part.value }}</span>
+              <span v-else>{{ part.value }}</span>
+            </template>
+          </h1>
           <p>{{ description }}</p>
         </div>
       </div>
