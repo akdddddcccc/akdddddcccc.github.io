@@ -202,6 +202,9 @@ export default {
               {{ lang === 'zh' ? '复制' : 'Copy' }}
             </button>
           </header>
+          <p class="code-mobile-note">
+            {{ lang === 'zh' ? '代码细节详见 PC 端网页' : 'Code details are available on the desktop site' }}
+          </p>
           <pre class="code-panel__body"><code :class="'language-' + block.language">{{ block.code }}</code></pre>
         </article>
       </section>

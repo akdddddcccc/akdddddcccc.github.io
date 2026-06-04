@@ -525,6 +525,16 @@ a {
   color: #101114;
 }
 
+.code-mobile-note {
+  display: none;
+  margin: 0;
+  padding: 18px;
+  color: rgba(245, 245, 245, 0.72);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
 .code-panel__body {
   max-height: 620px;
   margin: 0;
@@ -854,10 +864,13 @@ a {
     line-height: 1.35;
   }
 
+  .code-copy,
   .code-panel__body {
-    max-height: 520px;
-    padding: 14px;
-    font-size: 12px;
+    display: none;
+  }
+
+  .code-mobile-note {
+    display: block;
   }
 
   .embed-stack {
