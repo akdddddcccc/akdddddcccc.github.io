@@ -621,7 +621,7 @@ export const projects = [
     "sourceFile": "页面优化.html",
     "category": "work",
     "discipline": "ui",
-    "image": "/images/work/页面优化/1.png",
+    "image": "/images/work/page-optimization-cover.png",
     "title": {
       "en": "页面优化",
       "zh": "页面优化"
