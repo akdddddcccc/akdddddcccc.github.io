@@ -10,6 +10,11 @@ export default {
       default: null
     }
   },
+  data() {
+    return {
+      loadedCodeBlocks: []
+    };
+  },
   computed: {
     detail() {
       return this.project?.details?.[this.lang] || {};
@@ -32,6 +37,9 @@ export default {
     pdfs() {
       return this.detail.pdfs || [];
     },
+    codeBlockRefs() {
+      return this.detail.codeBlocks || [];
+    },
     embeds() {
       return (this.detail.iframes || []).map((src, index) => ({
         label: this.embedLabel(src, index),
@@ -39,6 +47,14 @@ export default {
         requiresVpn: this.embedRequiresVpn(src),
         figmaUrl: this.figmaUrl(src)
       }));
+    }
+  },
+  watch: {
+    codeBlockRefs: {
+      handler() {
+        this.loadCodeBlocks();
+      },
+      immediate: true
     }
   },
   methods: {
@@ -64,6 +80,38 @@ export default {
       } catch {
         return "";
       }
+    },
+    languageLabel(language) {
+      return (language || "text").toUpperCase();
+    },
+    async loadCodeBlocks() {
+      const refs = this.codeBlockRefs;
+      if (!refs.length) {
+        this.loadedCodeBlocks = [];
+        return;
+      }
+
+      const blocks = await Promise.all(refs.map(async (block) => {
+        try {
+          const response = await fetch(block.src);
+          if (!response.ok) throw new Error(`Unable to load ${block.src}`);
+          return {
+            ...block,
+            code: await response.text()
+          };
+        } catch {
+          return {
+            ...block,
+            code: this.lang === "zh" ? "代码资源加载失败" : "Code resource failed to load"
+          };
+        }
+      }));
+
+      this.loadedCodeBlocks = blocks;
+    },
+    async copyCode(block) {
+      if (!navigator.clipboard || !block.code) return;
+      await navigator.clipboard.writeText(block.code);
     },
     disciplineLabel(key) {
       const labels = {
@@ -102,6 +150,21 @@ export default {
 
       <section v-if="outputImages.length" class="output-gallery">
         <img v-for="image in outputImages" :key="image" :src="image" :alt="title" />
+      </section>
+
+      <section v-if="loadedCodeBlocks.length" class="code-stack">
+        <article v-for="block in loadedCodeBlocks" :key="block.src" class="code-panel">
+          <header class="code-panel__header">
+            <div>
+              <h2>{{ block.title }}</h2>
+              <span>{{ languageLabel(block.language) }}</span>
+            </div>
+            <button type="button" class="code-copy" @click="copyCode(block)">
+              {{ lang === 'zh' ? '复制' : 'Copy' }}
+            </button>
+          </header>
+          <pre class="code-panel__body"><code :class="'language-' + block.language">{{ block.code }}</code></pre>
+        </article>
       </section>
 
       <section v-if="embeds.length" class="embed-stack">

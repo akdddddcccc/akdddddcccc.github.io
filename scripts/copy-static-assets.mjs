@@ -6,6 +6,7 @@ const outDir = join(root, "dist");
 
 const entries = [
   "assets",
+  "code",
   "images",
   "pdf",
   "vendor",

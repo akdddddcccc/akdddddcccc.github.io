@@ -61,6 +61,13 @@ export const projects = [
         "pdfs": [
           "/pdf/shaker.pdf"
         ],
+        "codeBlocks": [
+          {
+            "title": "Prototype Arduino code",
+            "language": "arduino",
+            "src": "/code/shaker-arduino.ino"
+          }
+        ],
         "sectionLabels": [
           "project pdf download",
           "原型Arduino代码展示",
@@ -78,6 +85,13 @@ export const projects = [
         ],
         "pdfs": [
           "/pdf/shaker.pdf"
+        ],
+        "codeBlocks": [
+          {
+            "title": "原型 Arduino 代码展示",
+            "language": "arduino",
+            "src": "/code/shaker-arduino.ino"
+          }
         ],
         "sectionLabels": [
           "项目pdf下载",
@@ -434,6 +448,13 @@ export const projects = [
         "images": [],
         "iframes": [],
         "pdfs": [],
+        "codeBlocks": [
+          {
+            "title": "Corresponding environment source code",
+            "language": "r",
+            "src": "/code/beauty-information-visualisation.R"
+          }
+        ],
         "sectionLabels": [
           "Corresponding environment source code"
         ]
@@ -445,6 +466,13 @@ export const projects = [
         "images": [],
         "iframes": [],
         "pdfs": [],
+        "codeBlocks": [
+          {
+            "title": "对应环境源码",
+            "language": "r",
+            "src": "/code/beauty-information-visualisation.R"
+          }
+        ],
         "sectionLabels": [
           "对应环境源码"
         ]

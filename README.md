@@ -29,6 +29,7 @@ http://127.0.0.1:4174
 - `src/styles/main.css`: desktop and mobile layout
 - `images/`: image assets
 - `pdf/`: project PDF files
+- `code/`: project source-code snippets shown on detail pages
 - `assets/fonts/`: local fonts
 
 ## Change Contact Info
@@ -98,6 +99,13 @@ Common fields:
       ],
       "pdfs": [
         "/pdf/flow.pdf"
+      ],
+      "codeBlocks": [
+        {
+          "title": "Prototype Arduino code",
+          "language": "arduino",
+          "src": "/code/example.ino"
+        }
       ]
     },
     "zh": {
@@ -110,6 +118,13 @@ Common fields:
       ],
       "pdfs": [
         "/pdf/flow.pdf"
+      ],
+      "codeBlocks": [
+        {
+          "title": "原型 Arduino 代码展示",
+          "language": "arduino",
+          "src": "/code/example.ino"
+        }
       ]
     }
   }
@@ -122,6 +137,7 @@ Notes:
 - `details.en.hero` and `details.zh.hero` are the main detail-page images.
 - `details.*.images` are extra output images shown below the intro.
 - `details.*.iframes` can include Figma, Bilibili, YouTube, Vimeo, etc.
+- `details.*.codeBlocks` shows source-code panels. Put the code file in `code/`.
 - YouTube and Vimeo embeds automatically show `需 VPN 观看`.
 - Figma embeds should use `https://embed.figma.com/design/...` URLs with the correct `node-id`.
 
@@ -159,6 +175,13 @@ Template:
       "pdfs": [
         "/pdf/project.pdf"
       ],
+      "codeBlocks": [
+        {
+          "title": "Code block title",
+          "language": "javascript",
+          "src": "/code/project-code.js"
+        }
+      ],
       "sectionLabels": []
     },
     "zh": {
@@ -174,6 +197,13 @@ Template:
       ],
       "pdfs": [
         "/pdf/project.pdf"
+      ],
+      "codeBlocks": [
+        {
+          "title": "代码栏标题",
+          "language": "javascript",
+          "src": "/code/project-code.js"
+        }
       ],
       "sectionLabels": []
     }
