@@ -36,7 +36,7 @@ export default {
           v-for="filter in filters"
           :key="filter.key"
           class="filter-button"
-          :class="{ active: activeKind === filter.key }"
+          :class="['filter-button--' + filter.key, { active: activeKind === filter.key }]"
           :href="'#/' + lang + '/projects/' + filter.key"
         >{{ filter.label }}</a>
       </div>

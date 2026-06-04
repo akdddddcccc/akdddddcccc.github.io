@@ -731,6 +731,11 @@ a {
     white-space: nowrap;
   }
 
+  .filter-button--unpublished,
+  .filter-button--vibe-coding {
+    display: none;
+  }
+
   .project-grid {
     grid-template-columns: 1fr;
     gap: 14px;
