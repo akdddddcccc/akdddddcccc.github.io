@@ -58,6 +58,8 @@ Available values:
 "ui"       // UI 设计 / UI Design
 "product"  // 工业产品设计 / Industrial Product
 "others"   // 其他 / Others
+"unpublished" // 未公开 / Unpublished, blurred and not clickable
+"vibe-coding" // vibe coding / web tools
 ```
 
 Example:

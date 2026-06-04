@@ -30,14 +30,18 @@ export const content = {
       { key: "visual", label: "Visual Design" },
       { key: "ui", label: "UI Design" },
       { key: "product", label: "Industrial Product" },
-      { key: "others", label: "Others" }
+      { key: "others", label: "Others" },
+      { key: "unpublished", label: "Unpublished" },
+      { key: "vibe-coding", label: "Vibe Coding" }
     ],
     zh: [
       { key: "all", label: "全部" },
       { key: "visual", label: "视觉设计" },
       { key: "ui", label: "UI 设计" },
       { key: "product", label: "工业产品设计" },
-      { key: "others", label: "其他" }
+      { key: "others", label: "其他" },
+      { key: "unpublished", label: "未公开" },
+      { key: "vibe-coding", label: "vibe coding" }
     ]
   },
   about: {

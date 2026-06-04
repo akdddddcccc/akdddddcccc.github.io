@@ -14,7 +14,7 @@ export default {
   },
   computed: {
     activeKind() {
-      return ["all", "visual", "ui", "product", "others"].includes(this.kind) ? this.kind : "all";
+      return ["all", "visual", "ui", "product", "others", "unpublished", "vibe-coding"].includes(this.kind) ? this.kind : "all";
     },
     filters() {
       return content.projectFilters[this.lang];
@@ -58,6 +58,10 @@ export default {
           </div>
         </article>
       </div>
+
+      <p v-if="!projects.length" class="project-empty">
+        {{ lang === 'zh' ? '即将更新' : 'Coming soon' }}
+      </p>
     </section>
   `
 };

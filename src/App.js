@@ -11,6 +11,8 @@ function getHashPath() {
   return window.location.hash.replace(/^#/, "") || "/";
 }
 
+const projectKinds = ["visual", "ui", "product", "others", "unpublished", "vibe-coding", "all"];
+
 export default {
   name: "App",
   components: {
@@ -36,7 +38,7 @@ export default {
     const page = computed(() => parts.value[1] || "home");
     const kind = computed(() => {
       const value = parts.value[2] || "all";
-      return ["visual", "ui", "product", "others", "all"].includes(value) ? value : "all";
+      return projectKinds.includes(value) ? value : "all";
     });
     const slug = computed(() => parts.value[2] || "");
     const project = computed(() => findProject(slug.value));

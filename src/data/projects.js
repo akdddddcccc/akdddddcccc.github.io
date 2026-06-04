@@ -875,6 +875,74 @@ export const projects = [
       "en": "/eng-page/%E5%A4%96%E5%8D%96logo.html",
       "zh": "/chin-page/%E5%A4%96%E5%8D%96logo.html"
     }
+  },
+  {
+    "slug": "touchdesigner-mix",
+    "sourceFile": "",
+    "category": "school",
+    "discipline": "unpublished",
+    "closed": true,
+    "image": "/images/study/11.webp",
+    "title": {
+      "en": "TouchDesigner mix (unpublished)",
+      "zh": "touchdesigner杂糅（待整理）"
+    },
+    "details": {
+      "en": {},
+      "zh": {}
+    },
+    "legacy": {}
+  },
+  {
+    "slug": "ashtray-bin",
+    "sourceFile": "",
+    "category": "work",
+    "discipline": "unpublished",
+    "closed": true,
+    "image": "/images/work/1.png",
+    "title": {
+      "en": "Ashtrays (unpublished)",
+      "zh": "烟灰桶（非公开）"
+    },
+    "details": {
+      "en": {},
+      "zh": {}
+    },
+    "legacy": {}
+  },
+  {
+    "slug": "auditorium-chair-bid",
+    "sourceFile": "",
+    "category": "work",
+    "discipline": "unpublished",
+    "closed": true,
+    "image": "/images/work/0.png",
+    "title": {
+      "en": "Bid for auditorium chairs (unpublished)",
+      "zh": "竞标礼堂椅（非公开）"
+    },
+    "details": {
+      "en": {},
+      "zh": {}
+    },
+    "legacy": {}
+  },
+  {
+    "slug": "college-rap-poster",
+    "sourceFile": "",
+    "category": "work",
+    "discipline": "unpublished",
+    "closed": true,
+    "image": "/images/work/6.png",
+    "title": {
+      "en": "Poster for College Rap Contest (unpublished)",
+      "zh": "大学生说唱大赛海报（非公开）"
+    },
+    "details": {
+      "en": {},
+      "zh": {}
+    },
+    "legacy": {}
   }
 ];
 
