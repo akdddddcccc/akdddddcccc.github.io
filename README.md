@@ -201,6 +201,16 @@ node-id=1667-835
 
 ## Deployment
 
+For Tencent Cloud EdgeOne Pages / Page One, this branch includes `edgeone.json`
+with these build settings:
+
+```text
+Install command: npm install
+Build command: npm run build
+Output directory: ./dist
+Node version: 22.17.1
+```
+
 For direct static hosting, upload the branch contents as-is.
 
 Important root files and folders:
