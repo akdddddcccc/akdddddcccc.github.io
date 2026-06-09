@@ -1,4 +1,4 @@
-export default {
+﻿export default {
   name: "TaskMapDemo",
   props: {
     lang: {
@@ -8,93 +8,109 @@ export default {
   },
   data() {
     return {
-      activeId: "task-3",
+      activeId: "task-2",
       hoverId: "",
       draggingMapId: "",
       dropTargetId: "",
       timelineDrag: null,
+      overviewDrag: null,
+      viewStart: "",
+      viewEnd: "",
+      detailTaskId: "",
+      detailPopover: {
+        x: 320,
+        y: 120
+      },
       exportMessage: "",
-      aiPrompt: "准备一个可以放进作品集的互动原型项目",
+      aiPrompt: "准备 2027 考研备考计划",
       aiMessage: "",
       tasks: [
         {
           id: "task-1",
           parentId: null,
-          title: "作品集 Vue 架构升级",
-          note: "先把目标拆成结构，再逐步进入排期。",
-          mode: "auto",
-          start: "",
-          end: "",
+          title: "2027 考研上岸计划",
+          note: "最高级只保留一个总目标，所有备考阶段都挂在这个目标下面。",
+          mode: "locked",
+          start: "2026-06-10",
+          end: "2026-12-21",
+          ddl: "2026-12-21T08:30",
           done: false
         },
         {
           id: "task-2",
           parentId: "task-1",
-          title: "梳理旧网站信息架构",
-          note: "保留原有项目内容，重组分类和访问路径。",
+          title: "确定院校与专业",
+          note: "锁定目标院校、专业方向和考试科目，整理参考书与历年分数线。",
           mode: "auto",
-          start: "2026-06-03",
-          end: "2026-06-04",
+          start: "2026-06-10",
+          end: "2026-06-24",
+          ddl: "2026-06-24T22:00",
           done: true
         },
         {
           id: "task-3",
           parentId: "task-1",
-          title: "建立可切换的作品分类",
-          note: "视觉、UI、工业产品、其他、未公开、vibe coding。",
+          title: "英语与政治基础",
+          note: "英语单词、长难句和政治基础课同步推进，先建立每日稳定节奏。",
           mode: "auto",
-          start: "2026-06-04",
-          end: "2026-06-05",
-          done: true
+          start: "2026-06-17",
+          end: "2026-08-15",
+          ddl: "2026-08-15T22:00",
+          done: false
         },
         {
           id: "task-4",
           parentId: "task-1",
-          title: "加入互动原型体验区",
-          note: "把 vibe coding 项目做成可直接体验的作品。",
+          title: "专业课一轮框架",
+          note: "按章节建立知识树，先把核心概念、题型和参考书页码对应起来。",
           mode: "auto",
-          start: "2026-06-09",
-          end: "2026-06-10",
+          start: "2026-06-25",
+          end: "2026-08-31",
+          ddl: "2026-08-31T22:00",
           done: false
         },
         {
           id: "task-5",
-          parentId: null,
-          title: "Task Map 原型验证",
-          note: "测试先结构、后排期的工作流是否自然。",
-          mode: "locked",
-          start: "2026-06-09",
-          end: "2026-06-16",
+          parentId: "task-1",
+          title: "暑期强化刷题",
+          note: "进入题型训练和错题复盘，强化阶段不再只看课，要把输出量拉上来。",
+          mode: "auto",
+          start: "2026-07-20",
+          end: "2026-09-20",
+          ddl: "2026-09-20T22:00",
           done: false
         },
         {
           id: "task-6",
           parentId: "task-5",
-          title: "完成交互 demo",
-          note: "大纲编辑、完成状态、时间轴和导出。",
+          title: "数学每日套题",
+          note: "每周至少两次限时训练，错题回收到专业/公共课错题表。",
           mode: "auto",
-          start: "2026-06-09",
-          end: "2026-06-12",
+          start: "2026-07-20",
+          end: "2026-09-05",
+          ddl: "2026-09-05T22:00",
           done: false
         },
         {
           id: "task-7",
-          parentId: "task-5",
-          title: "导出可交互 HTML",
-          note: "不依赖登录或云端储存，导出后仍可点击完成。",
+          parentId: "task-1",
+          title: "真题与模考冲刺",
+          note: "按考试时间做成套真题，模考后只修最影响分数的漏洞。",
           mode: "auto",
-          start: "2026-06-12",
-          end: "2026-06-13",
+          start: "2026-09-21",
+          end: "2026-11-30",
+          ddl: "2026-11-30T22:00",
           done: false
         },
         {
           id: "task-8",
-          parentId: "task-5",
-          title: "整理 PDF 汇报版本",
-          note: "通过浏览器打印保存为 PDF。",
+          parentId: "task-1",
+          title: "考前收束与复盘",
+          note: "停止盲目扩展资料，只保留错题、背诵清单和考前作息。",
           mode: "auto",
-          start: "2026-06-15",
-          end: "2026-06-16",
+          start: "2026-12-01",
+          end: "2026-12-21",
+          ddl: "2026-12-21T08:30",
           done: false
         }
       ]
@@ -108,16 +124,16 @@ export default {
       return this.lang === "zh"
         ? {
             kicker: "Vibe Coding / Interaction Prototype",
-            title: "Task Map：先梳理结构，再安排时间",
-            intro: "这个 demo 尝试把任务管理从表单前移到结构思考：AI 只提供拆解思路与同级任务的初步时间划分，真正的结构关系和时间范围由用户在思维导图与甘特图中拖动确定。",
+            title: "Task Map：以考研为例，先梳理结构，再安排时间",
+            intro: "这个 demo 以考研备考为案例：最高级只保留一个总目标，所有阶段都挂在它下面；AI 只提供拆解思路与初步时间划分，真正的结构关系和时间范围由用户在思维导图与甘特图中拖动确定。",
             mindMap: "思维导图",
             schedule: "时间轴 / 甘特结构",
             aiTitle: "AI 拆解建议",
-            aiPlaceholder: "输入一个模糊目标，例如：准备作品集里的一个互动原型项目",
+            aiPlaceholder: "输入一个模糊目标，例如：准备 2027 考研备考计划",
             aiGenerate: "生成拆解建议",
-            aiMessage: "已补充同级子任务，并按父任务范围做了初步时间分配",
-            canvasHint: "点击节点选中；拖动节点到另一个节点上可改变层级；悬停时显示下一级子任务。",
-            hierarchyHint: "AI 只负责给拆解思路，节点增删、层级关系和时间范围由你拖动确认。",
+            aiMessage: "已补充子任务，并按所选节点范围做了初步时间分配",
+            canvasHint: "点击节点选中；拖动节点到另一个节点上可改变层级；最高级只允许一个总目标。",
+            hierarchyHint: "AI 只负责给拆解思路。思维导图负责层级，时间轴中双击任务可打开精细编辑贴片。",
             childPreview: "下一级子任务",
             noChildPreview: "当前节点暂无下一级子任务",
             ganttHint: "甘特图保留层级缩进，父任务显示整体范围，子任务显示具体执行段。",
@@ -126,18 +142,29 @@ export default {
             addChildInline: "添加子任务",
             addSiblingInline: "添加同级任务",
             promoteInline: "升级层级",
-            indentInline: "降级为上方节点的子任务",
             deleteTask: "删除节点",
-            keyboardHint: "键盘：Enter 新增同级，Tab 降级，Shift+Tab 升级，Delete 删除。",
+            keyboardHint: "键盘：Tab 添加子任务，Enter 新增同级，Shift+Tab 升级，Delete 删除。",
             ddl: "DDL",
             ddlHint: "DDL 可精确到日期与小时；持续时间请在右侧甘特图中拖动确定。",
             dragRangeHint: "拖动黑色任务条即可重新确定任务范围。",
+            timeOverview: "时间总览",
+            overviewHint: "拖动中间滑轨移动视图；拖动两侧把手缩放时间范围。",
+            overviewWindow: "拖动时间总览滑轨，移动当前视图范围",
+            overviewStartHandle: "拖动左侧把手，调整视图开始日期",
+            overviewEndHandle: "拖动右侧把手，调整视图结束日期",
+            taskBarDragLabel: "拖动任务条调整时间，双击打开编辑贴片",
+            childPeekHint: "悬停任务条可向下查看一级子任务。",
+            aiSplit: "AI 拆解",
             selected: "选中节点",
             addRoot: "根目标",
             addChild: "子任务",
             addSibling: "同级任务",
             exportHtml: "导出互动 HTML",
             exportPdf: "导出 PDF",
+            clearCaseData: "清空案例数据",
+            clearCaseMessage: "案例数据已清空，可以从一个空白总目标开始尝试。",
+            scratchRootTitle: "新的总目标",
+            scratchRootNote: "从这里开始改标题、加子任务、拖动时间条，搭建自己的计划。",
             complete: "完成",
             completed: "已完成",
             auto: "自动汇总",
@@ -148,22 +175,27 @@ export default {
             parent: "父级",
             noParent: "根节点",
             timeline: "时间轴",
+            openDetail: "双击编辑",
+            closeDetail: "关闭",
+            doubleClickHint: "双击任意时间轴任务，打开选中节点的精细化编辑贴片。",
+            rootLocked: "最高级任务只能有一个，已在总目标下添加阶段。",
+            rootProtected: "总目标不能删除；可以删除或调整它下面的阶段。",
             conflict: "超出锁定父任务范围",
             exportReady: "已生成下载文件",
             printHint: "请在打印窗口中选择保存为 PDF"
           }
         : {
             kicker: "Vibe Coding / Interaction Prototype",
-            title: "Task Map: structure first, schedule later",
-            intro: "This demo moves task planning away from form-first input. AI only suggests breakdown ideas and rough sibling time splits; users confirm structure and ranges by dragging the mind map and Gantt bars.",
+            title: "Task Map: exam prep structure first, schedule later",
+            intro: "This demo uses postgraduate exam prep as the case: only one top-level goal is allowed, every phase lives under it, and users confirm structure and time ranges by dragging the mind map and Gantt bars.",
             mindMap: "Mind map",
             schedule: "Timeline / Gantt structure",
             aiTitle: "AI breakdown suggestions",
-            aiPlaceholder: "Type a fuzzy goal, e.g. prepare an interactive prototype for my portfolio",
+            aiPlaceholder: "Type a fuzzy goal, e.g. prepare for the 2027 postgraduate exam",
             aiGenerate: "Generate breakdown",
-            aiMessage: "Sibling child tasks were added and roughly split across the parent range",
-            canvasHint: "Click to select. Drag a node onto another node to change hierarchy. Hover to reveal next-level children.",
-            hierarchyHint: "AI only suggests breakdown ideas. You confirm nodes, hierarchy, and ranges by dragging.",
+            aiMessage: "Child tasks were added and roughly split across the selected range",
+            canvasHint: "Click to select. Drag a node onto another node to change hierarchy. Only one top-level goal is allowed.",
+            hierarchyHint: "AI only suggests breakdown ideas. The mind map owns hierarchy; double-click a timeline row to edit details.",
             childPreview: "Next-level children",
             noChildPreview: "No next-level children yet",
             ganttHint: "The Gantt view keeps hierarchy indentation: parent nodes show an overall range and child nodes show execution spans.",
@@ -172,18 +204,29 @@ export default {
             addChildInline: "Add child task",
             addSiblingInline: "Add sibling task",
             promoteInline: "Promote level",
-            indentInline: "Indent under previous node",
             deleteTask: "Delete node",
-            keyboardHint: "Keyboard: Enter adds a sibling, Tab indents, Shift+Tab promotes, Delete removes.",
+            keyboardHint: "Keyboard: Tab adds a child, Enter adds a sibling, Shift+Tab promotes, Delete removes.",
             ddl: "DDL",
             ddlHint: "DDL can be precise to date and hour. Drag Gantt bars to define duration ranges.",
             dragRangeHint: "Drag the black task bar to redefine the task range.",
+            timeOverview: "Time overview",
+            overviewHint: "Drag the middle rail to move the view. Drag either handle to resize the visible range.",
+            overviewWindow: "Drag the time overview rail to move the current view range",
+            overviewStartHandle: "Drag the left handle to adjust the view start date",
+            overviewEndHandle: "Drag the right handle to adjust the view end date",
+            taskBarDragLabel: "Drag the task bar to adjust time. Double-click to edit details",
+            childPeekHint: "Hover a task bar to reveal first-level child tasks below.",
+            aiSplit: "AI split",
             selected: "Selected node",
             addRoot: "Root goal",
             addChild: "Child task",
             addSibling: "Sibling task",
             exportHtml: "Export interactive HTML",
             exportPdf: "Export PDF",
+            clearCaseData: "Clear case data",
+            clearCaseMessage: "Case data cleared. Start from a blank top-level goal.",
+            scratchRootTitle: "New top-level goal",
+            scratchRootNote: "Rename this, add child tasks, and drag bars to build your own plan.",
             complete: "Complete",
             completed: "Completed",
             auto: "Auto range",
@@ -194,13 +237,21 @@ export default {
             parent: "Parent",
             noParent: "Root",
             timeline: "Timeline",
+            openDetail: "Double-click to edit",
+            closeDetail: "Close",
+            doubleClickHint: "Double-click any timeline task to open the selected-node detail patch.",
+            rootLocked: "Only one top-level task is allowed. A phase was added under the root goal.",
+            rootProtected: "The root goal cannot be deleted; edit or remove its phases instead.",
             conflict: "Outside locked parent range",
             exportReady: "Download file generated",
             printHint: "Choose Save as PDF in the print window"
           };
     },
+    rootTask() {
+      return this.tasks.find((task) => !task.parentId) || this.tasks[0] || null;
+    },
     rootTasks() {
-      return this.tasks.filter((task) => !task.parentId);
+      return this.rootTask ? [this.rootTask] : [];
     },
     flatTasks() {
       const rows = [];
@@ -214,16 +265,22 @@ export default {
     activeTask() {
       return this.tasks.find((task) => task.id === this.activeId) || this.tasks[0];
     },
+    detailTask() {
+      return this.tasks.find((task) => task.id === this.detailTaskId) || null;
+    },
+    detailPopoverStyle() {
+      return {
+        left: `${this.detailPopover.x}px`,
+        top: `${this.detailPopover.y}px`
+      };
+    },
     focusTask() {
       return this.tasks.find((task) => task.id === (this.hoverId || this.activeId)) || this.activeTask;
     },
     focusChildren() {
       return this.focusTask ? this.childrenOf(this.focusTask.id) : [];
     },
-    parentChoices() {
-      return this.tasks.filter((task) => task.id !== this.activeTask?.id && !this.isDescendant(task.id, this.activeTask?.id));
-    },
-    timelineBounds() {
+    projectBounds() {
       const dates = this.tasks
         .flatMap((task) => [this.rangeFor(task).start, this.rangeFor(task).end])
         .filter(Boolean)
@@ -240,6 +297,41 @@ export default {
       max.setDate(max.getDate() + 1);
       return { start: min, end: max };
     },
+    timelineBounds() {
+      if (this.viewStart && this.viewEnd) {
+        return {
+          start: new Date(`${this.viewStart}T00:00:00`),
+          end: new Date(`${this.viewEnd}T00:00:00`)
+        };
+      }
+      return this.projectBounds;
+    },
+    overviewWindowStyle() {
+      const projectStart = this.toDateInput(this.projectBounds.start);
+      const projectEnd = this.toDateInput(this.projectBounds.end);
+      const viewStart = this.toDateInput(this.timelineBounds.start);
+      const viewEnd = this.toDateInput(this.timelineBounds.end);
+      const totalDays = Math.max(1, this.dayDiff(projectStart, projectEnd) + 1);
+      const leftDays = Math.max(0, this.dayDiff(projectStart, viewStart));
+      const widthDays = Math.max(1, this.dayDiff(viewStart, viewEnd) + 1);
+      return {
+        left: `${(leftDays / totalDays) * 100}%`,
+        width: `${Math.min(100, (widthDays / totalDays) * 100)}%`
+      };
+    },
+    overviewStartHandleStyle() {
+      return {
+        left: this.overviewWindowStyle.left
+      };
+    },
+    overviewEndHandleStyle() {
+      return {
+        left: `calc(${this.overviewWindowStyle.left} + ${this.overviewWindowStyle.width})`
+      };
+    },
+    overviewRangeLabel() {
+      return `${this.toDateInput(this.timelineBounds.start)} → ${this.toDateInput(this.timelineBounds.end)}`;
+    },
     timelineDays() {
       const days = [];
       const cursor = new Date(this.timelineBounds.start);
@@ -252,11 +344,17 @@ export default {
       }
       return days;
     },
+    timelineGridStyle() {
+      return {
+        "--day-count": this.timelineDays.length,
+        "--timeline-width": `${Math.max(920, this.timelineDays.length * 48)}px`
+      };
+    },
     completedCount() {
       return this.tasks.filter((task) => task.done).length;
     },
     progressPercent() {
-      return Math.round((this.completedCount / this.tasks.length) * 100);
+      return this.tasks.length ? Math.round((this.completedCount / this.tasks.length) * 100) : 0;
     },
     mindMapNodes() {
       return this.flatTasks.map(({ task, depth }, index) => ({
@@ -305,8 +403,90 @@ export default {
     isParent(task) {
       return this.childrenOf(task.id).length > 0;
     },
+    isRootTask(task) {
+      return !!task && task.id === this.rootTask?.id;
+    },
+    canAddSibling(task) {
+      return !!task?.parentId;
+    },
+    canPromote(task) {
+      if (!task?.parentId) return false;
+      const parent = this.tasks.find((item) => item.id === task.parentId);
+      return !!parent?.parentId;
+    },
+    canDeleteTask(task) {
+      return !!task && !this.isRootTask(task);
+    },
+    canShowAiSplit(task) {
+      return !!task && (this.hoverId === task.id || this.activeId === task.id) && !this.childrenOf(task.id).length;
+    },
+    parentChoicesFor(task) {
+      return this.tasks.filter((item) => item.id !== task?.id && !this.isDescendant(item.id, task?.id));
+    },
+    taskBarAriaLabel(task) {
+      return `${this.labels.taskBarDragLabel}：${task.title}`;
+    },
     selectTask(id) {
       this.activeId = id;
+    },
+    openTimelineEditor(task, event) {
+      if (!task) return;
+      this.activeId = task.id;
+      this.detailTaskId = task.id;
+      const panel = event?.currentTarget?.closest?.(".task-map-panel--gantt");
+      if (panel) {
+        const panelRect = panel.getBoundingClientRect();
+        const rowRect = event.currentTarget.getBoundingClientRect();
+        const x = Math.min(
+          Math.max(rowRect.left - panelRect.left + 18, 18),
+          Math.max(18, panelRect.width - 360)
+        );
+        const y = Math.min(
+          Math.max(rowRect.top - panelRect.top + 34, 72),
+          Math.max(72, panelRect.height - 420)
+        );
+        this.detailPopover = { x, y };
+      }
+    },
+    closeTimelineEditor() {
+      this.detailTaskId = "";
+    },
+    generateAiForTask(task) {
+      if (!task) return;
+      this.activeId = task.id;
+      this.generateAiStructure();
+    },
+    createBlankRootTask() {
+      const start = this.toDateInput(new Date());
+      const end = this.addDays(start, 6);
+      return {
+        id: `task-root-${Date.now()}`,
+        parentId: null,
+        title: this.labels.scratchRootTitle,
+        note: this.labels.scratchRootNote,
+        mode: "locked",
+        start,
+        end,
+        ddl: `${end}T18:00`,
+        done: false
+      };
+    },
+    clearCaseData() {
+      this.removeTimelineListeners();
+      const root = this.createBlankRootTask();
+      this.tasks = [root];
+      this.activeId = root.id;
+      this.hoverId = "";
+      this.draggingMapId = "";
+      this.dropTargetId = "";
+      this.timelineDrag = null;
+      this.overviewDrag = null;
+      this.viewStart = "";
+      this.viewEnd = "";
+      this.detailTaskId = "";
+      this.aiPrompt = "";
+      this.aiMessage = "";
+      this.exportMessage = this.labels.clearCaseMessage;
     },
     focusWorkspace() {
       this.$nextTick(() => {
@@ -315,6 +495,9 @@ export default {
       });
     },
     createTask(parentId = null, afterId = "") {
+      if (!parentId && this.rootTask) {
+        parentId = this.rootTask.id;
+      }
       const id = `task-${Date.now()}-${Math.round(Math.random() * 1000)}`;
       const task = {
         id,
@@ -340,6 +523,11 @@ export default {
       });
     },
     addRoot() {
+      if (this.rootTask) {
+        this.activeId = this.rootTask.id;
+        this.aiMessage = this.labels.rootLocked;
+        return;
+      }
       this.createTask(null);
     },
     addChild() {
@@ -352,10 +540,20 @@ export default {
     },
     addSibling() {
       if (!this.activeTask) return;
+      if (!this.activeTask.parentId) {
+        this.createTask(this.activeTask.id);
+        this.aiMessage = this.labels.rootLocked;
+        return;
+      }
       this.createTask(this.activeTask.parentId, this.activeTask.id);
     },
     addSiblingFor(task) {
       this.activeId = task.id;
+      if (!task.parentId) {
+        this.createTask(task.id);
+        this.aiMessage = this.labels.rootLocked;
+        return;
+      }
       this.createTask(task.parentId, task.id);
     },
     handleTitleKeydown(event, task) {
@@ -368,13 +566,18 @@ export default {
         event.preventDefault();
         this.activeId = task.id;
         if (event.shiftKey) this.promoteTask(task);
-        else this.indentTask(task);
+        else this.addChildFor(task);
       }
     },
     handleWorkspaceKeydown(event) {
       const tag = event.target?.tagName;
       const isTyping = ["TEXTAREA", "SELECT"].includes(tag);
       const isTitleInput = event.target?.classList?.contains("task-inspector__title");
+      if (event.key === "Escape" && this.detailTask) {
+        event.preventDefault();
+        this.closeTimelineEditor();
+        return;
+      }
       if (isTyping || (tag === "INPUT" && !isTitleInput)) return;
       if (!this.activeTask) return;
 
@@ -387,7 +590,7 @@ export default {
       if (event.key === "Tab") {
         event.preventDefault();
         if (event.shiftKey) this.promoteTask(this.activeTask);
-        else this.indentTask(this.activeTask);
+        else this.addChildFor(this.activeTask);
         return;
       }
 
@@ -396,23 +599,11 @@ export default {
         this.deleteTask(this.activeTask);
       }
     },
-    indentTask(task) {
-      const index = this.tasks.findIndex((item) => item.id === task.id);
-      const previous = this.tasks[index - 1];
-      if (!previous || previous.id === task.parentId) return;
-      task.parentId = previous.id;
-      this.activeId = task.id;
-    },
     promoteTask(task) {
-      if (!task.parentId) return;
+      if (!this.canPromote(task)) return;
       const parent = this.tasks.find((item) => item.id === task.parentId);
       task.parentId = parent?.parentId || null;
       this.activeId = task.id;
-    },
-    canIndent(task) {
-      const index = this.tasks.findIndex((item) => item.id === task.id);
-      const previous = this.tasks[index - 1];
-      return !!previous && previous.id !== task.parentId;
     },
     setHoverTask(id) {
       this.hoverId = id || "";
@@ -434,7 +625,11 @@ export default {
     },
     setParent(value) {
       if (!this.activeTask) return;
-      this.activeTask.parentId = value || null;
+      if (this.isRootTask(this.activeTask)) {
+        this.activeTask.parentId = null;
+        return;
+      }
+      this.activeTask.parentId = value || this.rootTask?.id || null;
     },
     toggleDone(task) {
       task.done = !task.done;
@@ -451,6 +646,10 @@ export default {
       return ids;
     },
     deleteTask(task) {
+      if (!this.canDeleteTask(task)) {
+        this.aiMessage = this.labels.rootProtected;
+        return;
+      }
       const ids = [task.id, ...this.descendantIds(task.id)];
       this.tasks = this.tasks.filter((item) => !ids.includes(item.id));
       if (!this.tasks.length) {
@@ -459,13 +658,14 @@ export default {
       }
       if (ids.includes(this.activeId)) this.activeId = this.tasks[0].id;
       if (ids.includes(this.hoverId)) this.hoverId = "";
+      if (ids.includes(this.detailTaskId)) this.closeTimelineEditor();
     },
     generateAiStructure() {
       const parent = this.activeTask || this.tasks[0];
       const seed = this.aiPrompt.trim() || parent.title;
       const baseTitles = this.lang === "zh"
-        ? ["明确目标边界", "拆分关键阶段", "标记可执行节点", "识别需要排期的事项"]
-        : ["Define goal boundary", "Split key stages", "Mark executable nodes", "Identify schedulable items"];
+        ? ["核对考试科目", "拆分复习阶段", "安排真题训练", "预留冲刺复盘"]
+        : ["Check exam subjects", "Split review phases", "Plan past-paper drills", "Reserve final review"];
       const note = this.lang === "zh"
         ? `AI 根据“${seed}”生成的结构假设，可继续手动编辑。`
         : `AI-generated structure assumption from "${seed}". Keep editing manually.`;
@@ -504,7 +704,10 @@ export default {
       return this.toDateInput(date);
     },
     toDateInput(date) {
-      return date.toISOString().slice(0, 10);
+      const year = date.getFullYear();
+      const month = `${date.getMonth() + 1}`.padStart(2, "0");
+      const day = `${date.getDate()}`.padStart(2, "0");
+      return `${year}-${month}-${day}`;
     },
     rangeFor(task) {
       if (!task) return { start: "", end: "" };
@@ -541,13 +744,66 @@ export default {
     barStyle(task) {
       const range = this.rangeFor(task);
       if (!range.start || !range.end) return { display: "none" };
-      const total = Math.max(1, this.dayDiff(this.toDateInput(this.timelineBounds.start), this.toDateInput(this.timelineBounds.end)));
-      const left = Math.max(0, this.dayDiff(this.toDateInput(this.timelineBounds.start), range.start));
-      const width = Math.max(1, this.dayDiff(range.start, range.end) + 1);
+      const startBound = this.toDateInput(this.timelineBounds.start);
+      const endBound = this.toDateInput(this.timelineBounds.end);
+      if (range.end < startBound || range.start > endBound) return { display: "none" };
+      const visibleStart = range.start < startBound ? startBound : range.start;
+      const visibleEnd = range.end > endBound ? endBound : range.end;
+      const total = Math.max(1, this.dayDiff(startBound, endBound) + 1);
+      const left = Math.max(0, this.dayDiff(startBound, visibleStart));
+      const width = Math.max(1, this.dayDiff(visibleStart, visibleEnd) + 1);
       return {
         left: `${(left / total) * 100}%`,
         width: `${(width / total) * 100}%`
       };
+    },
+    startOverviewDrag(event, mode) {
+      const rail = event.currentTarget.closest(".task-overview__rail");
+      if (!rail) return;
+      const rect = rail.getBoundingClientRect();
+      const projectStart = this.toDateInput(this.projectBounds.start);
+      const projectEnd = this.toDateInput(this.projectBounds.end);
+      const viewStart = this.toDateInput(this.timelineBounds.start);
+      const viewEnd = this.toDateInput(this.timelineBounds.end);
+      this.overviewDrag = {
+        mode,
+        startX: event.clientX,
+        railWidth: Math.max(1, rect.width),
+        projectStart,
+        totalDays: Math.max(1, this.dayDiff(projectStart, projectEnd) + 1),
+        startOffset: this.dayDiff(projectStart, viewStart),
+        endOffset: this.dayDiff(projectStart, viewEnd)
+      };
+      window.addEventListener("mousemove", this.handleOverviewMove);
+      window.addEventListener("mouseup", this.finishOverviewDrag);
+      event.preventDefault();
+    },
+    handleOverviewMove(event) {
+      if (!this.overviewDrag) return;
+      const drag = this.overviewDrag;
+      const delta = Math.round(((event.clientX - drag.startX) / drag.railWidth) * drag.totalDays);
+      const maxOffset = drag.totalDays - 1;
+      const minDays = Math.min(14, drag.totalDays);
+      let startOffset = drag.startOffset;
+      let endOffset = drag.endOffset;
+
+      if (drag.mode === "start") {
+        startOffset = Math.min(Math.max(0, drag.startOffset + delta), endOffset - minDays + 1);
+      } else if (drag.mode === "end") {
+        endOffset = Math.max(Math.min(maxOffset, drag.endOffset + delta), startOffset + minDays - 1);
+      } else {
+        const span = endOffset - startOffset;
+        startOffset = Math.min(Math.max(0, drag.startOffset + delta), maxOffset - span);
+        endOffset = startOffset + span;
+      }
+
+      this.viewStart = this.addDays(drag.projectStart, startOffset);
+      this.viewEnd = this.addDays(drag.projectStart, endOffset);
+    },
+    finishOverviewDrag() {
+      window.removeEventListener("mousemove", this.handleOverviewMove);
+      window.removeEventListener("mouseup", this.finishOverviewDrag);
+      this.overviewDrag = null;
     },
     startMindDrag(event, task) {
       this.draggingMapId = task.id;
@@ -566,6 +822,11 @@ export default {
       if (!this.draggingMapId) return;
       const dragged = this.tasks.find((item) => item.id === this.draggingMapId);
       const targetId = this.dropTargetId || task?.id || "";
+      if (dragged && this.isRootTask(dragged)) {
+        this.draggingMapId = "";
+        this.dropTargetId = "";
+        return;
+      }
       if (dragged && targetId && targetId !== dragged.id && !this.isDescendant(targetId, dragged.id)) {
         dragged.parentId = targetId;
         this.activeId = dragged.id;
@@ -592,7 +853,6 @@ export default {
       };
       window.addEventListener("mousemove", this.handleTimelineMove);
       window.addEventListener("mouseup", this.finishTimelineDrag);
-      this.handleTimelineMove(event);
       event.preventDefault();
     },
     handleTimelineMove(event) {
@@ -618,6 +878,8 @@ export default {
     removeTimelineListeners() {
       window.removeEventListener("mousemove", this.handleTimelineMove);
       window.removeEventListener("mouseup", this.finishTimelineDrag);
+      window.removeEventListener("mousemove", this.handleOverviewMove);
+      window.removeEventListener("mouseup", this.finishOverviewDrag);
     },
     exportInteractiveHtml() {
       const labels = this.labels;
@@ -723,6 +985,7 @@ render();
         <div class="task-map-demo__actions">
           <button type="button" @click="exportInteractiveHtml">{{ labels.exportHtml }}</button>
           <button type="button" @click="exportPdf">{{ labels.exportPdf }}</button>
+          <button type="button" @click="clearCaseData">{{ labels.clearCaseData }}</button>
           <span v-if="exportMessage">{{ exportMessage }}</span>
         </div>
       </div>
@@ -735,7 +998,6 @@ render();
         <textarea v-model="aiPrompt" :placeholder="labels.aiPlaceholder" rows="2"></textarea>
         <div class="task-ai-panel__controls">
           <button type="button" @click="generateAiStructure">{{ labels.aiGenerate }}</button>
-          <button type="button" @click="addRoot">+ {{ labels.addRoot }}</button>
           <span>{{ completedCount }} / {{ tasks.length }} {{ labels.completed }}</span>
         </div>
         <p v-if="aiMessage" class="task-ai-panel__message">{{ aiMessage }}</p>
@@ -753,6 +1015,13 @@ render();
           <div class="mind-map-canvas">
             <p>{{ labels.canvasHint }}</p>
             <svg :viewBox="mindMapViewBox" role="img" aria-label="Mind map canvas" @mouseup="finishMindDrag()" @mouseleave="cancelMindDrag">
+              <defs>
+                <linearGradient id="task-ai-button-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#4f8cff" />
+                  <stop offset="52%" stop-color="#7c3aed" />
+                  <stop offset="100%" stop-color="#d946ef" />
+                </linearGradient>
+              </defs>
               <path
                 v-for="link in mindMapLinks"
                 :key="link.key"
@@ -775,16 +1044,42 @@ render();
               >
                 <rect :width="node.width" :height="node.height" />
                 <text x="12" y="24">{{ shortTitle(node.task.title) }}</text>
+                <rect
+                  v-if="canShowAiSplit(node.task)"
+                  class="mind-map-ai-button-border"
+                  :x="node.width + 6"
+                  y="2"
+                  width="86"
+                  height="32"
+                  rx="6"
+                  style="fill: #fff; stroke: url(#task-ai-button-gradient); stroke-width: 2;"
+                />
+                <foreignObject v-if="canShowAiSplit(node.task)" :x="node.width + 8" y="4" width="92" height="30">
+                  <button type="button" class="mind-map-ai-button" @mousedown.stop @click.stop="generateAiForTask(node.task)">
+                    {{ labels.aiSplit }}
+                  </button>
+                </foreignObject>
               </g>
             </svg>
             <div class="task-child-preview">
               <span>{{ labels.childPreview }} · {{ focusTask?.title }}</span>
               <div v-if="focusTask" class="task-child-preview__actions">
-                <button type="button" @click="addChildFor(focusTask)">+ {{ labels.addChild }}</button>
-                <button type="button" @click="addSiblingFor(focusTask)">+ {{ labels.addSibling }}</button>
-                <button type="button" :disabled="!focusTask.parentId" @click="promoteTask(focusTask)">← {{ labels.promoteInline }}</button>
-                <button type="button" :disabled="!canIndent(focusTask)" @click="indentTask(focusTask)">→ {{ labels.indentInline }}</button>
-                <button type="button" @click="deleteTask(focusTask)">× {{ labels.deleteTask }}</button>
+                <button type="button" @click="addChildFor(focusTask)">
+                  + {{ labels.addChild }}
+                  <kbd class="task-shortcut">Tab</kbd>
+                </button>
+                <button type="button" :disabled="!canAddSibling(focusTask)" @click="addSiblingFor(focusTask)">
+                  + {{ labels.addSibling }}
+                  <kbd class="task-shortcut">Enter</kbd>
+                </button>
+                <button type="button" :disabled="!canPromote(focusTask)" @click="promoteTask(focusTask)">
+                  ← {{ labels.promoteInline }}
+                  <kbd class="task-shortcut">Shift Tab</kbd>
+                </button>
+                <button type="button" :disabled="!canDeleteTask(focusTask)" @click="deleteTask(focusTask)">
+                  × {{ labels.deleteTask }}
+                  <kbd class="task-shortcut">Del</kbd>
+                </button>
               </div>
               <div v-if="focusChildren.length">
                 <button
@@ -799,37 +1094,6 @@ render();
               <p v-else>{{ labels.noChildPreview }}</p>
             </div>
           </div>
-
-          <div v-if="activeTask" class="task-inspector">
-            <p class="task-inspector__label">{{ labels.selected }}</p>
-            <input v-model="activeTask.title" class="task-inspector__title" @keydown="handleWorkspaceKeydown" />
-            <label>
-              <span>{{ labels.parent }}</span>
-              <select :value="activeTask.parentId || ''" @change="setParent($event.target.value)">
-                <option value="">{{ labels.noParent }}</option>
-                <option v-for="task in parentChoices" :key="task.id" :value="task.id">{{ task.title }}</option>
-              </select>
-            </label>
-            <label>
-              <span>{{ labels.note }}</span>
-              <textarea v-model="activeTask.note" rows="3"></textarea>
-            </label>
-            <div class="task-time-details">
-              <p>{{ labels.ddlHint }}</p>
-              <label>
-                <span>{{ labels.ddl }}</span>
-                <input type="datetime-local" v-model="activeTask.ddl" />
-              </label>
-              <label>
-                <span>Range mode</span>
-                <select v-model="activeTask.mode">
-                  <option value="auto">{{ labels.auto }}</option>
-                  <option value="locked">{{ labels.locked }}</option>
-                </select>
-              </label>
-            </div>
-            <p v-if="taskConflict(activeTask)" class="task-warning">{{ labels.conflict }}</p>
-          </div>
         </section>
 
         <section class="task-map-panel task-map-panel--gantt">
@@ -840,9 +1104,45 @@ render();
             </div>
           </header>
           <p class="task-gantt-hint">{{ labels.ganttHint }} {{ labels.dragRangeHint }}</p>
+          <p class="task-gantt-hint">{{ labels.doubleClickHint }}</p>
+          <p class="task-gantt-hint">{{ labels.childPeekHint }}</p>
           <p class="task-keyboard-hint">{{ labels.keyboardHint }}</p>
+            <div class="task-overview" :aria-label="labels.timeOverview">
+              <div class="task-overview__header">
+                <span>{{ labels.timeOverview }}</span>
+                <strong>{{ overviewRangeLabel }}</strong>
+              </div>
+              <div class="task-overview__rail">
+                <button
+                  type="button"
+                  class="task-overview__window"
+                  :style="overviewWindowStyle"
+                  :aria-label="labels.overviewWindow"
+                  :title="labels.overviewWindow"
+                  @mousedown="startOverviewDrag($event, 'move')"
+                >
+                  <span>{{ labels.overviewHint }}</span>
+                </button>
+                <button
+                  type="button"
+                  class="task-overview__handle task-overview__handle--start"
+                  :style="overviewStartHandleStyle"
+                  :aria-label="labels.overviewStartHandle"
+                  :title="labels.overviewStartHandle"
+                  @mousedown="startOverviewDrag($event, 'start')"
+                ></button>
+                <button
+                  type="button"
+                  class="task-overview__handle task-overview__handle--end"
+                  :style="overviewEndHandleStyle"
+                  :aria-label="labels.overviewEndHandle"
+                  :title="labels.overviewEndHandle"
+                  @mousedown="startOverviewDrag($event, 'end')"
+                ></button>
+              </div>
+            </div>
             <div class="task-timeline" aria-label="Task timeline">
-              <div class="task-timeline__dates" :style="{ '--day-count': timelineDays.length }">
+              <div class="task-timeline__dates" :style="timelineGridStyle">
                 <span v-for="day in timelineDays" :key="day.key">{{ day.label }}</span>
               </div>
               <div
@@ -850,16 +1150,72 @@ render();
                 :key="task.id + '-bar'"
                 class="task-timeline__row"
                 :class="{ conflict: taskConflict(task), done: task.done, active: activeId === task.id, 'focus-child': isFocusChild(task.id), 'hover-related': isTaskInHoverPath(task.id) }"
+                :style="{ ...timelineGridStyle, '--task-depth': depth }"
                 @mouseenter="setHoverTask(task.id)"
                 @mouseleave="setHoverTask('')"
                 @click="selectTask(task.id); focusWorkspace()"
+                @dblclick="openTimelineEditor(task, $event)"
               >
-                <span :style="{ paddingLeft: depth * 14 + 'px' }">{{ task.title }}</span>
-                <div class="task-timeline__track" :data-timeline-id="task.id" :style="{ '--day-count': timelineDays.length }">
-                  <i :style="barStyle(task)" @mousedown.stop="startTimelineDrag($event, task)"></i>
+                <div class="task-timeline__track" :data-timeline-id="task.id" :style="timelineGridStyle">
+                  <button
+                    type="button"
+                    class="task-timeline__bar"
+                    :style="barStyle(task)"
+                    :aria-label="taskBarAriaLabel(task)"
+                    @click.stop="selectTask(task.id); focusWorkspace()"
+                    @mousedown.stop="startTimelineDrag($event, task)"
+                    @dblclick.stop="openTimelineEditor(task, $event)"
+                  >
+                    <span class="task-timeline__bar-title">{{ task.title }}</span>
+                    <span v-if="childrenOf(task.id).length" class="task-bar-children" aria-hidden="true">
+                      <span v-for="child in childrenOf(task.id)" :key="child.id">{{ child.title }}</span>
+                    </span>
+                  </button>
                 </div>
               </div>
             </div>
+            <Transition name="task-detail-popover">
+              <div v-if="detailTask" class="task-detail-popover task-inspector" :style="detailPopoverStyle">
+                <header class="task-detail-popover__header">
+                  <div>
+                    <p class="task-inspector__label">{{ labels.selected }}</p>
+                    <strong>{{ labels.openDetail }}</strong>
+                  </div>
+                  <button type="button" @click="closeTimelineEditor">{{ labels.closeDetail }}</button>
+                </header>
+                <input v-model="detailTask.title" class="task-inspector__title" @keydown="handleWorkspaceKeydown" />
+                <label>
+                  <span>{{ labels.parent }}</span>
+                  <select
+                    :value="detailTask.parentId || ''"
+                    :disabled="isRootTask(detailTask)"
+                    @change="activeId = detailTask.id; setParent($event.target.value)"
+                  >
+                    <option value="" :disabled="!isRootTask(detailTask)">{{ labels.noParent }}</option>
+                    <option v-for="task in parentChoicesFor(detailTask)" :key="task.id" :value="task.id">{{ task.title }}</option>
+                  </select>
+                </label>
+                <label>
+                  <span>{{ labels.note }}</span>
+                  <textarea v-model="detailTask.note" rows="3"></textarea>
+                </label>
+                <div class="task-time-details">
+                  <p>{{ labels.ddlHint }}</p>
+                  <label>
+                    <span>{{ labels.ddl }}</span>
+                    <input type="datetime-local" v-model="detailTask.ddl" />
+                  </label>
+                  <label>
+                    <span>Range mode</span>
+                    <select v-model="detailTask.mode">
+                      <option value="auto">{{ labels.auto }}</option>
+                      <option value="locked">{{ labels.locked }}</option>
+                    </select>
+                  </label>
+                </div>
+                <p v-if="taskConflict(detailTask)" class="task-warning">{{ labels.conflict }}</p>
+              </div>
+            </Transition>
         </section>
       </div>
     </section>
