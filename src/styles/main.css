@@ -845,6 +845,10 @@ a {
   padding-top: 44px;
 }
 
+.task-map-demo:focus {
+  outline: 0;
+}
+
 .task-map-demo__intro {
   display: grid;
   grid-template-columns: minmax(260px, 0.7fr) minmax(300px, 1fr);
@@ -916,10 +920,14 @@ a {
 
 .task-map-shell {
   display: grid;
-  grid-template-columns: minmax(330px, 0.9fr) minmax(420px, 1.1fr);
+  grid-template-columns: 1fr;
   min-height: 720px;
   border: 1px solid rgba(11, 11, 15, 0.24);
   background: #f7f7f4;
+}
+
+.task-map-shell--diagram {
+  min-height: 0;
 }
 
 .task-map-panel {
@@ -928,7 +936,7 @@ a {
 }
 
 .task-map-panel + .task-map-panel {
-  border-left: 1px solid rgba(11, 11, 15, 0.16);
+  border-top: 1px solid rgba(11, 11, 15, 0.16);
 }
 
 .task-map-panel__header {
@@ -976,6 +984,12 @@ a {
   font-size: 12px;
 }
 
+.task-progress em {
+  color: rgba(11, 11, 15, 0.48);
+  font-style: normal;
+  line-height: 1.5;
+}
+
 .task-progress div {
   height: 7px;
   background: rgba(11, 11, 15, 0.12);
@@ -987,6 +1001,88 @@ a {
   background: #0b0b0f;
 }
 
+.task-ai-panel {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 14px;
+  border: 1px solid rgba(11, 11, 15, 0.18);
+  background: #0b0b0f;
+  color: #f5f5f5;
+}
+
+.task-ai-panel--wide {
+  grid-template-columns: minmax(220px, 0.6fr) minmax(280px, 1fr) auto;
+  align-items: start;
+  margin-bottom: 18px;
+}
+
+.task-ai-panel span {
+  display: block;
+  margin-bottom: 6px;
+  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.task-ai-panel p {
+  margin: 0;
+  color: rgba(245, 245, 245, 0.64);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.task-ai-panel textarea {
+  width: 100%;
+  min-height: 64px;
+  padding: 10px;
+  border: 1px solid rgba(245, 245, 245, 0.22);
+  background: #18191c;
+  color: #f5f5f5;
+  line-height: 1.55;
+  resize: vertical;
+}
+
+.task-ai-panel button {
+  width: fit-content;
+  min-height: 34px;
+  padding: 8px 11px;
+  border-color: rgba(245, 245, 245, 0.36);
+  background: transparent;
+  color: #f5f5f5;
+  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
+  font-size: 12px;
+}
+
+.task-ai-panel button:hover {
+  background: #f5f5f5;
+  color: #0b0b0f;
+}
+
+.task-ai-panel__message {
+  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
+}
+
+.task-ai-panel--wide .task-ai-panel__message {
+  grid-column: 2 / -1;
+}
+
+.task-ai-panel__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  justify-content: flex-end;
+  min-width: 180px;
+}
+
+.task-ai-panel__controls span {
+  width: 100%;
+  margin: 4px 0 0;
+  color: rgba(245, 245, 245, 0.58);
+  text-align: right;
+  text-transform: none;
+}
+
 .task-outline {
   display: grid;
   gap: 7px;
@@ -994,7 +1090,7 @@ a {
 
 .task-node {
   display: grid;
-  grid-template-columns: 26px minmax(0, 1fr) auto;
+  grid-template-columns: 26px minmax(0, 1fr) minmax(74px, auto);
   gap: 10px;
   align-items: start;
   margin-left: calc(var(--depth) * 24px);
@@ -1011,6 +1107,10 @@ a {
 
 .task-node.active {
   background: #f0f0ed;
+}
+
+.task-node.hover-related:not(.active) {
+  background: #fafafa;
 }
 
 .task-node.conflict {
@@ -1037,6 +1137,52 @@ a {
 .task-node.done .task-complete {
   background: #0b0b0f;
   color: #fff;
+}
+
+.task-node__side {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+}
+
+.task-node__actions {
+  display: grid;
+  grid-template-columns: repeat(4, 24px);
+  gap: 4px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-2px);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+
+.task-node:hover .task-node__actions,
+.task-node.active .task-node__actions {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.task-node__actions button {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-color: rgba(11, 11, 15, 0.28);
+  background: transparent;
+  color: #0b0b0f;
+  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.task-node__actions button:disabled {
+  border-color: rgba(11, 11, 15, 0.12);
+  color: rgba(11, 11, 15, 0.24);
+  cursor: not-allowed;
+}
+
+.task-node__actions button:disabled:hover {
+  background: transparent;
+  color: rgba(11, 11, 15, 0.24);
 }
 
 .task-node__main input,
@@ -1080,10 +1226,181 @@ a {
 .task-inspector {
   display: grid;
   gap: 12px;
-  margin-bottom: 22px;
+  margin-bottom: 16px;
   padding: 16px;
   border: 1px solid rgba(11, 11, 15, 0.14);
   background: #fff;
+}
+
+.task-map-panel--gantt .task-inspector {
+  display: none;
+}
+
+.mind-map-canvas {
+  margin-bottom: 16px;
+  border: 1px solid rgba(11, 11, 15, 0.14);
+  background:
+    linear-gradient(rgba(11, 11, 15, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(11, 11, 15, 0.045) 1px, transparent 1px),
+    #fff;
+  background-size: 28px 28px;
+}
+
+.mind-map-canvas > p {
+  margin: 0;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(11, 11, 15, 0.12);
+  color: rgba(11, 11, 15, 0.56);
+  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.mind-map-canvas svg {
+  display: block;
+  width: 100%;
+  height: min(68vh, 720px);
+  min-height: 520px;
+}
+
+.mind-map-canvas path {
+  fill: none;
+  stroke: rgba(11, 11, 15, 0.28);
+  stroke-width: 1.5;
+}
+
+.mind-map-link.active {
+  stroke: #0b0b0f;
+  stroke-width: 2.4;
+}
+
+.mind-map-node {
+  cursor: pointer;
+}
+
+.mind-map-node.dragging {
+  opacity: 0.46;
+}
+
+.mind-map-node rect {
+  fill: #f8f8f6;
+  stroke: rgba(11, 11, 15, 0.32);
+  stroke-width: 1;
+}
+
+.mind-map-node text {
+  fill: #0b0b0f;
+  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.mind-map-node.active rect {
+  fill: #0b0b0f;
+  stroke: #0b0b0f;
+}
+
+.mind-map-node.hover-related:not(.active) rect {
+  fill: #ededeb;
+  stroke: #0b0b0f;
+}
+
+.mind-map-node:hover rect {
+  fill: #ededeb;
+  stroke: #0b0b0f;
+  stroke-width: 2;
+}
+
+.mind-map-node.drop-target rect {
+  fill: #0b0b0f;
+  stroke: #0b0b0f;
+  stroke-width: 2.4;
+}
+
+.mind-map-node.drop-target text {
+  fill: #fff;
+}
+
+.task-child-preview {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px 14px;
+  border-top: 1px solid rgba(11, 11, 15, 0.12);
+  background: rgba(245, 245, 245, 0.72);
+}
+
+.task-child-preview span {
+  color: rgba(11, 11, 15, 0.54);
+  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
+  font-size: 12px;
+}
+
+.task-child-preview div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.task-child-preview__actions {
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(11, 11, 15, 0.12);
+}
+
+.task-child-preview button {
+  min-height: 30px;
+  padding: 6px 9px;
+  background: #fff;
+  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
+  font-size: 12px;
+}
+
+.task-child-preview__actions button {
+  background: #f6f6f3;
+}
+
+.task-child-preview__actions button:disabled {
+  border-color: rgba(11, 11, 15, 0.12);
+  color: rgba(11, 11, 15, 0.28);
+  cursor: not-allowed;
+}
+
+.task-child-preview__actions button:disabled:hover {
+  background: #f6f6f3;
+  color: rgba(11, 11, 15, 0.28);
+}
+
+.task-child-preview p,
+.task-gantt-hint {
+  margin: 0;
+  color: rgba(11, 11, 15, 0.54);
+  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.task-gantt-hint {
+  margin: -6px 0 14px;
+}
+
+.task-keyboard-hint {
+  margin: -8px 0 16px;
+  color: rgba(11, 11, 15, 0.44);
+  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.mind-map-node.active text {
+  fill: #fff;
+}
+
+.mind-map-node.done rect {
+  fill: #e4e4e0;
+}
+
+.mind-map-node.conflict rect {
+  stroke: #c7472f;
+  stroke-width: 2;
 }
 
 .task-inspector__label,
@@ -1123,6 +1440,42 @@ a {
   gap: 10px;
 }
 
+.task-time-details {
+  display: grid;
+  gap: 10px;
+  border-top: 1px solid rgba(11, 11, 15, 0.12);
+  padding-top: 10px;
+}
+
+.task-time-details summary {
+  width: fit-content;
+  color: rgba(11, 11, 15, 0.64);
+  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.task-time-details p {
+  margin: 0;
+  color: rgba(11, 11, 15, 0.52);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.task-timeline-details {
+  border-top: 1px solid rgba(11, 11, 15, 0.12);
+  padding-top: 12px;
+}
+
+.task-timeline-details summary {
+  width: fit-content;
+  margin-bottom: 10px;
+  color: rgba(11, 11, 15, 0.5);
+  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
+  font-size: 12px;
+  cursor: pointer;
+}
+
 .task-warning {
   margin: 0;
   padding: 10px;
@@ -1135,17 +1488,24 @@ a {
 .task-timeline {
   display: grid;
   gap: 0;
+  max-height: min(72vh, 760px);
   overflow-x: auto;
+  overflow-y: auto;
   border: 1px solid rgba(11, 11, 15, 0.14);
   background: #fff;
+  opacity: 1;
 }
 
 .task-timeline__dates {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   display: grid;
   grid-template-columns: repeat(var(--day-count, 10), minmax(48px, 1fr));
-  min-width: 620px;
+  min-width: 920px;
   padding: 10px 12px 10px 220px;
-  border-bottom: 1px solid rgba(11, 11, 15, 0.14);
+  border-bottom: 1px solid rgba(11, 11, 15, 0.18);
+  background: #f6f6f3;
   color: rgba(11, 11, 15, 0.5);
   font-family: "JetBrains Mono", monospace;
   font-size: 11px;
@@ -1153,11 +1513,25 @@ a {
 
 .task-timeline__row {
   display: grid;
-  grid-template-columns: 210px minmax(420px, 1fr);
-  min-width: 620px;
+  grid-template-columns: 260px minmax(660px, 1fr);
+  min-width: 920px;
   align-items: center;
-  min-height: 38px;
+  min-height: 44px;
   border-bottom: 1px solid rgba(11, 11, 15, 0.08);
+  cursor: pointer;
+}
+
+.task-timeline__row:hover,
+.task-timeline__row.active {
+  background: #f0f0ed;
+}
+
+.task-timeline__row.focus-child {
+  background: #fafafa;
+}
+
+.task-timeline__row.hover-related:not(.active) {
+  background: #f6f6f3;
 }
 
 .task-timeline__row > span {
@@ -1165,24 +1539,40 @@ a {
   padding: 9px 10px;
   border-right: 1px solid rgba(11, 11, 15, 0.1);
   font-size: 12px;
+  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.task-timeline__row > div {
+.task-timeline__track {
   position: relative;
   height: 100%;
-  min-height: 38px;
+  min-height: 44px;
   background-image: linear-gradient(to right, rgba(11, 11, 15, 0.07) 1px, transparent 1px);
   background-size: calc(100% / var(--day-count, 10)) 100%;
 }
 
 .task-timeline__row i {
   position: absolute;
-  top: 10px;
-  bottom: 10px;
+  top: 12px;
+  bottom: 12px;
   min-width: 10px;
   background: #0b0b0f;
+  cursor: grab;
+}
+
+.task-timeline__row i:active {
+  cursor: grabbing;
+}
+
+.task-timeline__row.active i,
+.task-timeline__row.hover-related i {
+  outline: 2px solid rgba(11, 11, 15, 0.18);
+  outline-offset: 2px;
+}
+
+.task-timeline__row.focus-child i {
+  background: #4a4a4a;
 }
 
 .task-timeline__row.done i {

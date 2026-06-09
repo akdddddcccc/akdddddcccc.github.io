@@ -9,7 +9,13 @@ export default {
   data() {
     return {
       activeId: "task-3",
+      hoverId: "",
+      draggingMapId: "",
+      dropTargetId: "",
+      timelineDrag: null,
       exportMessage: "",
+      aiPrompt: "准备一个可以放进作品集的互动原型项目",
+      aiMessage: "",
       tasks: [
         {
           id: "task-1",
@@ -94,15 +100,38 @@ export default {
       ]
     };
   },
+  beforeUnmount() {
+    this.removeTimelineListeners();
+  },
   computed: {
     labels() {
       return this.lang === "zh"
         ? {
             kicker: "Vibe Coding / Interaction Prototype",
             title: "Task Map：先梳理结构，再安排时间",
-            intro: "这个 demo 尝试把任务管理从表单前移到结构思考：先用大纲拆分复杂事项，再给具体节点补充时间，父任务自动形成或锁定整体范围。",
-            structure: "结构模式",
-            schedule: "排期模式",
+            intro: "这个 demo 尝试把任务管理从表单前移到结构思考：AI 只提供拆解思路与同级任务的初步时间划分，真正的结构关系和时间范围由用户在思维导图与甘特图中拖动确定。",
+            mindMap: "思维导图",
+            schedule: "时间轴 / 甘特结构",
+            aiTitle: "AI 拆解建议",
+            aiPlaceholder: "输入一个模糊目标，例如：准备作品集里的一个互动原型项目",
+            aiGenerate: "生成拆解建议",
+            aiMessage: "已补充同级子任务，并按父任务范围做了初步时间分配",
+            canvasHint: "点击节点选中；拖动节点到另一个节点上可改变层级；悬停时显示下一级子任务。",
+            hierarchyHint: "AI 只负责给拆解思路，节点增删、层级关系和时间范围由你拖动确认。",
+            childPreview: "下一级子任务",
+            noChildPreview: "当前节点暂无下一级子任务",
+            ganttHint: "甘特图保留层级缩进，父任务显示整体范围，子任务显示具体执行段。",
+            lightSchedule: "轻量时间提示",
+            dateOptional: "日期是后置提示，不再作为创建任务的必填表单。",
+            addChildInline: "添加子任务",
+            addSiblingInline: "添加同级任务",
+            promoteInline: "升级层级",
+            indentInline: "降级为上方节点的子任务",
+            deleteTask: "删除节点",
+            keyboardHint: "键盘：Enter 新增同级，Tab 降级，Shift+Tab 升级，Delete 删除。",
+            ddl: "DDL",
+            ddlHint: "DDL 可精确到日期与小时；持续时间请在右侧甘特图中拖动确定。",
+            dragRangeHint: "拖动黑色任务条即可重新确定任务范围。",
             selected: "选中节点",
             addRoot: "根目标",
             addChild: "子任务",
@@ -126,9 +155,29 @@ export default {
         : {
             kicker: "Vibe Coding / Interaction Prototype",
             title: "Task Map: structure first, schedule later",
-            intro: "This demo moves task planning away from form-first input. Build the outline first, then assign dates to concrete nodes while parent ranges are inferred or locked.",
-            structure: "Structure mode",
-            schedule: "Schedule mode",
+            intro: "This demo moves task planning away from form-first input. AI only suggests breakdown ideas and rough sibling time splits; users confirm structure and ranges by dragging the mind map and Gantt bars.",
+            mindMap: "Mind map",
+            schedule: "Timeline / Gantt structure",
+            aiTitle: "AI breakdown suggestions",
+            aiPlaceholder: "Type a fuzzy goal, e.g. prepare an interactive prototype for my portfolio",
+            aiGenerate: "Generate breakdown",
+            aiMessage: "Sibling child tasks were added and roughly split across the parent range",
+            canvasHint: "Click to select. Drag a node onto another node to change hierarchy. Hover to reveal next-level children.",
+            hierarchyHint: "AI only suggests breakdown ideas. You confirm nodes, hierarchy, and ranges by dragging.",
+            childPreview: "Next-level children",
+            noChildPreview: "No next-level children yet",
+            ganttHint: "The Gantt view keeps hierarchy indentation: parent nodes show an overall range and child nodes show execution spans.",
+            lightSchedule: "Light time signal",
+            dateOptional: "Dates are optional later signals, not required creation fields.",
+            addChildInline: "Add child task",
+            addSiblingInline: "Add sibling task",
+            promoteInline: "Promote level",
+            indentInline: "Indent under previous node",
+            deleteTask: "Delete node",
+            keyboardHint: "Keyboard: Enter adds a sibling, Tab indents, Shift+Tab promotes, Delete removes.",
+            ddl: "DDL",
+            ddlHint: "DDL can be precise to date and hour. Drag Gantt bars to define duration ranges.",
+            dragRangeHint: "Drag the black task bar to redefine the task range.",
             selected: "Selected node",
             addRoot: "Root goal",
             addChild: "Child task",
@@ -164,6 +213,12 @@ export default {
     },
     activeTask() {
       return this.tasks.find((task) => task.id === this.activeId) || this.tasks[0];
+    },
+    focusTask() {
+      return this.tasks.find((task) => task.id === (this.hoverId || this.activeId)) || this.activeTask;
+    },
+    focusChildren() {
+      return this.focusTask ? this.childrenOf(this.focusTask.id) : [];
     },
     parentChoices() {
       return this.tasks.filter((task) => task.id !== this.activeTask?.id && !this.isDescendant(task.id, this.activeTask?.id));
@@ -202,6 +257,39 @@ export default {
     },
     progressPercent() {
       return Math.round((this.completedCount / this.tasks.length) * 100);
+    },
+    mindMapNodes() {
+      return this.flatTasks.map(({ task, depth }, index) => ({
+        task,
+        depth,
+        x: 54 + depth * 180,
+        y: 54 + index * 68,
+        width: task.id === this.activeId ? 156 : 138,
+        height: 38
+      }));
+    },
+    mindMapLinks() {
+      return this.mindMapNodes
+        .filter((node) => node.task.parentId)
+        .map((node) => {
+          const parent = this.mindMapNodes.find((item) => item.task.id === node.task.parentId);
+          if (!parent) return null;
+          return {
+            key: `${parent.task.id}-${node.task.id}`,
+            fromId: parent.task.id,
+            toId: node.task.id,
+            x1: parent.x + parent.width,
+            y1: parent.y + parent.height / 2,
+            x2: node.x,
+            y2: node.y + node.height / 2
+          };
+        })
+        .filter(Boolean);
+    },
+    mindMapViewBox() {
+      const maxX = Math.max(...this.mindMapNodes.map((node) => node.x + node.width), 700) + 60;
+      const maxY = Math.max(...this.mindMapNodes.map((node) => node.y + node.height), 420) + 60;
+      return `0 0 ${maxX} ${maxY}`;
     }
   },
   methods: {
@@ -220,6 +308,12 @@ export default {
     selectTask(id) {
       this.activeId = id;
     },
+    focusWorkspace() {
+      this.$nextTick(() => {
+        const workspace = this.$el.querySelector(".task-map-workspace");
+        if (workspace) workspace.focus({ preventScroll: true });
+      });
+    },
     createTask(parentId = null, afterId = "") {
       const id = `task-${Date.now()}-${Math.round(Math.random() * 1000)}`;
       const task = {
@@ -230,6 +324,7 @@ export default {
         mode: "auto",
         start: "",
         end: "",
+        ddl: "",
         done: false
       };
       if (!afterId) {
@@ -251,9 +346,17 @@ export default {
       if (!this.activeTask) return;
       this.createTask(this.activeTask.id);
     },
+    addChildFor(task) {
+      this.activeId = task.id;
+      this.createTask(task.id);
+    },
     addSibling() {
       if (!this.activeTask) return;
       this.createTask(this.activeTask.parentId, this.activeTask.id);
+    },
+    addSiblingFor(task) {
+      this.activeId = task.id;
+      this.createTask(task.parentId, task.id);
     },
     handleTitleKeydown(event, task) {
       if (event.key === "Enter") {
@@ -268,16 +371,66 @@ export default {
         else this.indentTask(task);
       }
     },
+    handleWorkspaceKeydown(event) {
+      const tag = event.target?.tagName;
+      const isTyping = ["TEXTAREA", "SELECT"].includes(tag);
+      const isTitleInput = event.target?.classList?.contains("task-inspector__title");
+      if (isTyping || (tag === "INPUT" && !isTitleInput)) return;
+      if (!this.activeTask) return;
+
+      if (event.key === "Enter") {
+        event.preventDefault();
+        this.addSiblingFor(this.activeTask);
+        return;
+      }
+
+      if (event.key === "Tab") {
+        event.preventDefault();
+        if (event.shiftKey) this.promoteTask(this.activeTask);
+        else this.indentTask(this.activeTask);
+        return;
+      }
+
+      if ((event.key === "Delete" || event.key === "Backspace") && !isTitleInput) {
+        event.preventDefault();
+        this.deleteTask(this.activeTask);
+      }
+    },
     indentTask(task) {
       const index = this.tasks.findIndex((item) => item.id === task.id);
       const previous = this.tasks[index - 1];
       if (!previous || previous.id === task.parentId) return;
       task.parentId = previous.id;
+      this.activeId = task.id;
     },
     promoteTask(task) {
       if (!task.parentId) return;
       const parent = this.tasks.find((item) => item.id === task.parentId);
       task.parentId = parent?.parentId || null;
+      this.activeId = task.id;
+    },
+    canIndent(task) {
+      const index = this.tasks.findIndex((item) => item.id === task.id);
+      const previous = this.tasks[index - 1];
+      return !!previous && previous.id !== task.parentId;
+    },
+    setHoverTask(id) {
+      this.hoverId = id || "";
+    },
+    isTaskInHoverPath(taskId) {
+      if (!this.hoverId) return false;
+      if (taskId === this.hoverId) return true;
+      const hoverTask = this.tasks.find((task) => task.id === this.hoverId);
+      return hoverTask?.parentId === taskId || this.childrenOf(this.hoverId).some((task) => task.id === taskId);
+    },
+    isFocusChild(taskId) {
+      const sourceId = this.hoverId || this.activeId;
+      if (!sourceId) return false;
+      return this.childrenOf(sourceId).some((task) => task.id === taskId);
+    },
+    isLinkInHoverPath(link) {
+      if (!this.hoverId) return false;
+      return link.fromId === this.hoverId || link.toId === this.hoverId;
     },
     setParent(value) {
       if (!this.activeTask) return;
@@ -285,6 +438,70 @@ export default {
     },
     toggleDone(task) {
       task.done = !task.done;
+    },
+    descendantIds(id) {
+      const ids = [];
+      const collect = (parentId) => {
+        this.childrenOf(parentId).forEach((child) => {
+          ids.push(child.id);
+          collect(child.id);
+        });
+      };
+      collect(id);
+      return ids;
+    },
+    deleteTask(task) {
+      const ids = [task.id, ...this.descendantIds(task.id)];
+      this.tasks = this.tasks.filter((item) => !ids.includes(item.id));
+      if (!this.tasks.length) {
+        this.addRoot();
+        return;
+      }
+      if (ids.includes(this.activeId)) this.activeId = this.tasks[0].id;
+      if (ids.includes(this.hoverId)) this.hoverId = "";
+    },
+    generateAiStructure() {
+      const parent = this.activeTask || this.tasks[0];
+      const seed = this.aiPrompt.trim() || parent.title;
+      const baseTitles = this.lang === "zh"
+        ? ["明确目标边界", "拆分关键阶段", "标记可执行节点", "识别需要排期的事项"]
+        : ["Define goal boundary", "Split key stages", "Mark executable nodes", "Identify schedulable items"];
+      const note = this.lang === "zh"
+        ? `AI 根据“${seed}”生成的结构假设，可继续手动编辑。`
+        : `AI-generated structure assumption from "${seed}". Keep editing manually.`;
+      const parentRange = this.rangeFor(parent);
+      const hasRange = parentRange.start && parentRange.end;
+      const totalDays = hasRange ? Math.max(1, this.dayDiff(parentRange.start, parentRange.end) + 1) : 8;
+      const sliceDays = Math.max(1, Math.floor(totalDays / baseTitles.length));
+      const startSeed = hasRange ? parentRange.start : this.toDateInput(new Date());
+      baseTitles.forEach((title, index) => {
+        const start = this.addDays(startSeed, index * sliceDays);
+        const end = index === baseTitles.length - 1
+          ? this.addDays(startSeed, totalDays - 1)
+          : this.addDays(start, sliceDays - 1);
+        this.tasks.push({
+          id: `task-ai-${Date.now()}-${index}`,
+          parentId: parent.id,
+          title,
+          note,
+          mode: "auto",
+          start,
+          end,
+          ddl: `${end}T18:00`,
+          done: false
+        });
+      });
+      this.activeId = parent.id;
+      this.aiMessage = this.labels.aiMessage;
+    },
+    shortTitle(value) {
+      const source = value || "";
+      return source.length > 12 ? `${source.slice(0, 12)}…` : source;
+    },
+    addDays(value, days) {
+      const date = new Date(`${value}T00:00:00`);
+      date.setDate(date.getDate() + days);
+      return this.toDateInput(date);
     },
     toDateInput(date) {
       return date.toISOString().slice(0, 10);
@@ -331,6 +548,76 @@ export default {
         left: `${(left / total) * 100}%`,
         width: `${(width / total) * 100}%`
       };
+    },
+    startMindDrag(event, task) {
+      this.draggingMapId = task.id;
+      this.dropTargetId = "";
+      this.setHoverTask(task.id);
+      event.preventDefault();
+    },
+    setMindDropTarget(task) {
+      if (!this.draggingMapId || task.id === this.draggingMapId || this.isDescendant(task.id, this.draggingMapId)) {
+        this.dropTargetId = "";
+        return;
+      }
+      this.dropTargetId = task.id;
+    },
+    finishMindDrag(task) {
+      if (!this.draggingMapId) return;
+      const dragged = this.tasks.find((item) => item.id === this.draggingMapId);
+      const targetId = this.dropTargetId || task?.id || "";
+      if (dragged && targetId && targetId !== dragged.id && !this.isDescendant(targetId, dragged.id)) {
+        dragged.parentId = targetId;
+        this.activeId = dragged.id;
+      }
+      this.draggingMapId = "";
+      this.dropTargetId = "";
+    },
+    cancelMindDrag() {
+      this.draggingMapId = "";
+      this.dropTargetId = "";
+    },
+    isMindDropTarget(taskId) {
+      return this.dropTargetId === taskId;
+    },
+    startTimelineDrag(event, task) {
+      if (!task.start || !task.end) {
+        const range = this.rangeFor(task);
+        task.start = range.start || this.toDateInput(this.timelineBounds.start);
+        task.end = range.end || this.addDays(task.start, 1);
+      }
+      this.timelineDrag = {
+        id: task.id,
+        duration: Math.max(0, this.dayDiff(task.start, task.end))
+      };
+      window.addEventListener("mousemove", this.handleTimelineMove);
+      window.addEventListener("mouseup", this.finishTimelineDrag);
+      this.handleTimelineMove(event);
+      event.preventDefault();
+    },
+    handleTimelineMove(event) {
+      if (!this.timelineDrag) return;
+      const task = this.tasks.find((item) => item.id === this.timelineDrag.id);
+      if (!task) return;
+      const track = event.target.closest?.(".task-timeline__track") || document.querySelector(`[data-timeline-id="${task.id}"]`);
+      if (!track) return;
+      const rect = track.getBoundingClientRect();
+      const percent = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+      const startBound = this.toDateInput(this.timelineBounds.start);
+      const endBound = this.toDateInput(this.timelineBounds.end);
+      const total = Math.max(1, this.dayDiff(startBound, endBound));
+      const day = Math.round(percent * total);
+      const start = this.addDays(startBound, day);
+      task.start = start;
+      task.end = this.addDays(start, this.timelineDrag.duration);
+    },
+    finishTimelineDrag() {
+      this.removeTimelineListeners();
+      this.timelineDrag = null;
+    },
+    removeTimelineListeners() {
+      window.removeEventListener("mousemove", this.handleTimelineMove);
+      window.removeEventListener("mouseup", this.finishTimelineDrag);
     },
     exportInteractiveHtml() {
       const labels = this.labels;
@@ -428,7 +715,7 @@ render();
     }
   },
   template: `
-    <section class="task-map-demo" aria-label="Task Map interactive demo">
+    <section class="task-map-demo task-map-workspace" aria-label="Task Map interactive demo" tabindex="0" @keydown="handleWorkspaceKeydown">
       <div class="task-map-demo__intro">
         <p class="task-map-demo__kicker">{{ labels.kicker }}</p>
         <h2>{{ labels.title }}</h2>
@@ -440,62 +727,82 @@ render();
         </div>
       </div>
 
-      <div class="task-map-shell">
-        <section class="task-map-panel task-map-panel--structure">
+      <section class="task-ai-panel task-ai-panel--wide">
+        <div>
+          <span>{{ labels.aiTitle }}</span>
+          <p>{{ labels.hierarchyHint }}</p>
+        </div>
+        <textarea v-model="aiPrompt" :placeholder="labels.aiPlaceholder" rows="2"></textarea>
+        <div class="task-ai-panel__controls">
+          <button type="button" @click="generateAiStructure">{{ labels.aiGenerate }}</button>
+          <button type="button" @click="addRoot">+ {{ labels.addRoot }}</button>
+          <span>{{ completedCount }} / {{ tasks.length }} {{ labels.completed }}</span>
+        </div>
+        <p v-if="aiMessage" class="task-ai-panel__message">{{ aiMessage }}</p>
+      </section>
+
+      <div class="task-map-shell task-map-shell--diagram">
+        <section class="task-map-panel task-map-panel--map">
           <header class="task-map-panel__header">
             <div>
               <span>01</span>
-              <h3>{{ labels.structure }}</h3>
-            </div>
-            <div class="task-map-toolbar">
-              <button type="button" @click="addRoot">+ {{ labels.addRoot }}</button>
-              <button type="button" @click="addChild">+ {{ labels.addChild }}</button>
-              <button type="button" @click="addSibling">+ {{ labels.addSibling }}</button>
+              <h3>{{ labels.mindMap }}</h3>
             </div>
           </header>
 
-          <div class="task-progress">
-            <span>{{ completedCount }} / {{ tasks.length }} {{ labels.completed }}</span>
-            <div><i :style="{ width: progressPercent + '%' }"></i></div>
-          </div>
-
-          <div class="task-outline">
-            <article
-              v-for="{ task, depth } in flatTasks"
-              :key="task.id"
-              class="task-node"
-              :class="{ active: activeId === task.id, done: task.done, conflict: taskConflict(task) }"
-              :style="{ '--depth': depth }"
-              @click="selectTask(task.id)"
-            >
-              <button type="button" class="task-complete" @click.stop="toggleDone(task)">
-                {{ task.done ? '✓' : '' }}
-              </button>
-              <div class="task-node__main">
-                <input
-                  :data-task-input="task.id"
-                  v-model="task.title"
-                  @focus="selectTask(task.id)"
-                  @keydown="handleTitleKeydown($event, task)"
-                />
-                <p>{{ task.note || displayRange(task) }}</p>
+          <div class="mind-map-canvas">
+            <p>{{ labels.canvasHint }}</p>
+            <svg :viewBox="mindMapViewBox" role="img" aria-label="Mind map canvas" @mouseup="finishMindDrag()" @mouseleave="cancelMindDrag">
+              <path
+                v-for="link in mindMapLinks"
+                :key="link.key"
+                class="mind-map-link"
+                :class="{ active: isLinkInHoverPath(link) }"
+                :d="'M ' + link.x1 + ' ' + link.y1 + ' C ' + (link.x1 + 58) + ' ' + link.y1 + ', ' + (link.x2 - 58) + ' ' + link.y2 + ', ' + link.x2 + ' ' + link.y2"
+              />
+              <g
+                v-for="node in mindMapNodes"
+                :key="node.task.id"
+                class="mind-map-node"
+                :class="{ active: activeId === node.task.id, done: node.task.done, conflict: taskConflict(node.task), 'hover-related': isTaskInHoverPath(node.task.id), dragging: draggingMapId === node.task.id, 'drop-target': isMindDropTarget(node.task.id) }"
+                :transform="'translate(' + node.x + ' ' + node.y + ')'"
+                @click="selectTask(node.task.id); focusWorkspace()"
+                @mousedown.stop="startMindDrag($event, node.task)"
+                @mouseenter="setHoverTask(node.task.id)"
+                @mousemove="setMindDropTarget(node.task)"
+                @mouseup.stop="finishMindDrag(node.task)"
+                @mouseleave="setHoverTask('')"
+              >
+                <rect :width="node.width" :height="node.height" />
+                <text x="12" y="24">{{ shortTitle(node.task.title) }}</text>
+              </g>
+            </svg>
+            <div class="task-child-preview">
+              <span>{{ labels.childPreview }} · {{ focusTask?.title }}</span>
+              <div v-if="focusTask" class="task-child-preview__actions">
+                <button type="button" @click="addChildFor(focusTask)">+ {{ labels.addChild }}</button>
+                <button type="button" @click="addSiblingFor(focusTask)">+ {{ labels.addSibling }}</button>
+                <button type="button" :disabled="!focusTask.parentId" @click="promoteTask(focusTask)">← {{ labels.promoteInline }}</button>
+                <button type="button" :disabled="!canIndent(focusTask)" @click="indentTask(focusTask)">→ {{ labels.indentInline }}</button>
+                <button type="button" @click="deleteTask(focusTask)">× {{ labels.deleteTask }}</button>
               </div>
-              <span class="task-node__mode">{{ task.mode === 'locked' ? labels.locked : labels.auto }}</span>
-            </article>
-          </div>
-        </section>
-
-        <section class="task-map-panel task-map-panel--schedule">
-          <header class="task-map-panel__header">
-            <div>
-              <span>02</span>
-              <h3>{{ labels.schedule }}</h3>
+              <div v-if="focusChildren.length">
+                <button
+                  v-for="child in focusChildren"
+                  :key="child.id"
+                  type="button"
+                  @click="selectTask(child.id); focusWorkspace()"
+                  @mouseenter="setHoverTask(child.id)"
+                  @mouseleave="setHoverTask('')"
+                >{{ child.title }}</button>
+              </div>
+              <p v-else>{{ labels.noChildPreview }}</p>
             </div>
-          </header>
+          </div>
 
           <div v-if="activeTask" class="task-inspector">
             <p class="task-inspector__label">{{ labels.selected }}</p>
-            <input v-model="activeTask.title" class="task-inspector__title" />
+            <input v-model="activeTask.title" class="task-inspector__title" @keydown="handleWorkspaceKeydown" />
             <label>
               <span>{{ labels.parent }}</span>
               <select :value="activeTask.parentId || ''" @change="setParent($event.target.value)">
@@ -503,46 +810,56 @@ render();
                 <option v-for="task in parentChoices" :key="task.id" :value="task.id">{{ task.title }}</option>
               </select>
             </label>
-            <div class="task-inspector__grid">
-              <label>
-                <span>{{ labels.start }}</span>
-                <input type="date" v-model="activeTask.start" />
-              </label>
-              <label>
-                <span>{{ labels.end }}</span>
-                <input type="date" v-model="activeTask.end" />
-              </label>
-            </div>
-            <label>
-              <span>Range mode</span>
-              <select v-model="activeTask.mode">
-                <option value="auto">{{ labels.auto }}</option>
-                <option value="locked">{{ labels.locked }}</option>
-              </select>
-            </label>
             <label>
               <span>{{ labels.note }}</span>
               <textarea v-model="activeTask.note" rows="3"></textarea>
             </label>
+            <div class="task-time-details">
+              <p>{{ labels.ddlHint }}</p>
+              <label>
+                <span>{{ labels.ddl }}</span>
+                <input type="datetime-local" v-model="activeTask.ddl" />
+              </label>
+              <label>
+                <span>Range mode</span>
+                <select v-model="activeTask.mode">
+                  <option value="auto">{{ labels.auto }}</option>
+                  <option value="locked">{{ labels.locked }}</option>
+                </select>
+              </label>
+            </div>
             <p v-if="taskConflict(activeTask)" class="task-warning">{{ labels.conflict }}</p>
           </div>
+        </section>
 
-          <div class="task-timeline" aria-label="Task timeline">
-            <div class="task-timeline__dates" :style="{ '--day-count': timelineDays.length }">
-              <span v-for="day in timelineDays" :key="day.key">{{ day.label }}</span>
+        <section class="task-map-panel task-map-panel--gantt">
+          <header class="task-map-panel__header">
+            <div>
+              <span>02</span>
+              <h3>{{ labels.schedule }}</h3>
             </div>
-            <div
-              v-for="{ task, depth } in flatTasks"
-              :key="task.id + '-bar'"
-              class="task-timeline__row"
-              :class="{ conflict: taskConflict(task), done: task.done }"
-            >
-              <span :style="{ paddingLeft: depth * 14 + 'px' }">{{ task.title }}</span>
-              <div :style="{ '--day-count': timelineDays.length }">
-                <i :style="barStyle(task)"></i>
+          </header>
+          <p class="task-gantt-hint">{{ labels.ganttHint }} {{ labels.dragRangeHint }}</p>
+          <p class="task-keyboard-hint">{{ labels.keyboardHint }}</p>
+            <div class="task-timeline" aria-label="Task timeline">
+              <div class="task-timeline__dates" :style="{ '--day-count': timelineDays.length }">
+                <span v-for="day in timelineDays" :key="day.key">{{ day.label }}</span>
+              </div>
+              <div
+                v-for="{ task, depth } in flatTasks"
+                :key="task.id + '-bar'"
+                class="task-timeline__row"
+                :class="{ conflict: taskConflict(task), done: task.done, active: activeId === task.id, 'focus-child': isFocusChild(task.id), 'hover-related': isTaskInHoverPath(task.id) }"
+                @mouseenter="setHoverTask(task.id)"
+                @mouseleave="setHoverTask('')"
+                @click="selectTask(task.id); focusWorkspace()"
+              >
+                <span :style="{ paddingLeft: depth * 14 + 'px' }">{{ task.title }}</span>
+                <div class="task-timeline__track" :data-timeline-id="task.id" :style="{ '--day-count': timelineDays.length }">
+                  <i :style="barStyle(task)" @mousedown.stop="startTimelineDrag($event, task)"></i>
+                </div>
               </div>
             </div>
-          </div>
         </section>
       </div>
     </section>
