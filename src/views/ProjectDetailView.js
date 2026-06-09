@@ -1,5 +1,10 @@
+import TaskMapDemo from "../components/TaskMapDemo.js";
+
 export default {
   name: "ProjectDetailView",
+  components: {
+    TaskMapDemo
+  },
   props: {
     lang: {
       type: String,
@@ -56,6 +61,9 @@ export default {
     },
     codeBlockRefs() {
       return this.detail.codeBlocks || [];
+    },
+    demoType() {
+      return this.detail.demo?.type || "";
     },
     embeds() {
       return (this.detail.iframes || []).map((src, index) => ({
@@ -213,13 +221,17 @@ export default {
           visual: "Visual Design",
           ui: "UI Design",
           product: "Industrial Product",
-          others: "Others"
+          others: "Others",
+          unpublished: "Unpublished",
+          "vibe-coding": "Vibe Coding"
         },
         zh: {
           visual: "视觉设计",
           ui: "UI 设计",
           product: "工业产品设计",
-          others: "其他"
+          others: "其他",
+          unpublished: "未公开",
+          "vibe-coding": "vibe coding"
         }
       };
       return labels[this.lang][key] || key;
@@ -246,6 +258,8 @@ export default {
           {{ lang === 'zh' ? '项目 PDF 下载' : 'Project PDF download' }}
         </a>
       </section>
+
+      <TaskMapDemo v-if="demoType === 'task-map'" :lang="lang" />
 
       <section v-if="outputImages.length" class="output-gallery">
         <figure

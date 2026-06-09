@@ -877,6 +877,52 @@ export const projects = [
     }
   },
   {
+    "slug": "task-map-prototype",
+    "sourceFile": "task-map-prototype-understanding.md",
+    "category": "vibe-coding",
+    "discipline": "vibe-coding",
+    "image": "/images/work/task-map-prototype-cover.svg",
+    "title": {
+      "en": "Task Map - Interactive Planning Prototype",
+      "zh": "Task Map——任务结构排期原型"
+    },
+    "details": {
+      "en": {
+        "title": "Task Map - Interactive Planning Prototype",
+        "description": "A vibe coding prototype that explores a structure-first task planning flow: build an editable outline, assign time later, let parent ranges auto-summarize or become locked constraints, and export the current demo as an interactive HTML or printable PDF.",
+        "hero": "/images/work/task-map-prototype-cover.svg",
+        "images": [],
+        "iframes": [],
+        "pdfs": [],
+        "demo": {
+          "type": "task-map"
+        },
+        "sectionLabels": [
+          "interactive demo",
+          "export html",
+          "export pdf"
+        ]
+      },
+      "zh": {
+        "title": "Task Map——任务结构排期原型",
+        "description": "一个 vibe coding 交互原型，尝试把任务规划从表单填写前移到结构思考：先建立可编辑大纲，再给具体节点补充时间，父任务可以自动汇总范围，也可以锁定为约束，并支持导出当前 demo 为可交互 HTML 或可打印 PDF。",
+        "hero": "/images/work/task-map-prototype-cover.svg",
+        "images": [],
+        "iframes": [],
+        "pdfs": [],
+        "demo": {
+          "type": "task-map"
+        },
+        "sectionLabels": [
+          "交互 demo",
+          "导出 html",
+          "导出 pdf"
+        ]
+      }
+    },
+    "legacy": {}
+  },
+  {
     "slug": "touchdesigner-mix",
     "sourceFile": "",
     "category": "school",
