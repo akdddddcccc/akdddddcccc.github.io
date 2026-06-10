@@ -909,6 +909,309 @@ a {
   color: #fff;
 }
 
+.ai-workflow-shell {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr) 260px;
+  min-height: 720px;
+  border: 1px solid rgba(11, 11, 15, 0.24);
+  background: #f7f7f4;
+}
+
+.ai-workflow-panel,
+.ai-workflow-stage {
+  min-width: 0;
+  padding: 22px;
+}
+
+.ai-workflow-panel:first-child,
+.ai-workflow-stage {
+  border-right: 1px solid rgba(11, 11, 15, 0.16);
+}
+
+.ai-workflow-upload {
+  display: grid;
+  place-items: center;
+  min-height: 136px;
+  margin: 0 0 18px;
+  padding: 18px;
+  border: 1px dashed rgba(11, 11, 15, 0.28);
+  background: #fff;
+  text-align: center;
+  cursor: pointer;
+}
+
+.ai-workflow-upload input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.ai-workflow-upload strong {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  margin-bottom: 10px;
+  border: 1px solid #0b0b0f;
+  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
+  font-size: 22px;
+  font-weight: 400;
+}
+
+.ai-workflow-upload span,
+.ai-workflow-upload small {
+  display: block;
+}
+
+.ai-workflow-field {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.ai-workflow-field span {
+  color: rgba(11, 11, 15, 0.66);
+  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.ai-workflow-field textarea {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid rgba(11, 11, 15, 0.18);
+  background: #fff;
+  color: #0b0b0f;
+  padding: 10px;
+  line-height: 1.55;
+}
+
+.ai-workflow-modes {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 18px;
+}
+
+.ai-workflow-modes button {
+  display: grid;
+  min-height: 72px;
+  padding: 12px;
+  border: 1px solid rgba(11, 11, 15, 0.14);
+  background: #fff;
+  text-align: left;
+}
+
+.ai-workflow-modes button:hover,
+.ai-workflow-modes button.active {
+  border-color: #0b0b0f;
+  background: #f0f0ed;
+  color: #0b0b0f;
+}
+
+.ai-workflow-modes strong {
+  font-size: 15px;
+}
+
+.ai-workflow-modes span,
+.ai-workflow-upload small,
+.ai-workflow-assets small {
+  margin-top: 6px;
+  color: rgba(11, 11, 15, 0.68);
+  font-size: 12px;
+  line-height: 1.58;
+}
+
+.ai-workflow-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 42px;
+  margin-top: 8px;
+  padding: 10px 14px;
+  border: 1px solid #0b0b0f;
+  background: transparent;
+  color: #0b0b0f;
+  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.ai-workflow-button--dark,
+.ai-workflow-button:hover {
+  background: #0b0b0f;
+  color: #fff;
+}
+
+.ai-workflow-button--dark:hover {
+  background: #f5f5f5;
+  color: #0b0b0f;
+}
+
+.ai-workflow-stage {
+  background: #fff;
+}
+
+.ai-workflow-stage > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
+}
+
+.ai-workflow-stage > header em {
+  padding: 6px 9px;
+  border: 1px solid rgba(11, 11, 15, 0.24);
+  background: #f5f5f5;
+  font-size: 12px;
+  font-style: normal;
+}
+
+.ai-workflow-canvas-area {
+  position: relative;
+  min-height: 620px;
+  border: 1px solid rgba(11, 11, 15, 0.14);
+  background: radial-gradient(circle, rgba(11, 11, 15, 0.12) 1px, transparent 1.35px), #f7f7f4;
+  background-size: 22px 22px;
+}
+
+.ai-workflow-test-note {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: 16px;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 14px;
+  align-items: center;
+  min-height: 58px;
+  padding: 12px 14px;
+  border: 1px solid rgba(11, 11, 15, 0.16);
+  background: rgba(255, 255, 255, 0.86);
+  font-size: 12px;
+}
+
+.ai-workflow-test-note strong {
+  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
+  font-size: 13px;
+  text-transform: uppercase;
+}
+
+.ai-workflow-test-note span {
+  color: rgba(11, 11, 15, 0.68);
+  line-height: 1.55;
+}
+
+.ai-workflow-reference {
+  position: absolute;
+  left: 20px;
+  top: 104px;
+  width: 190px;
+}
+
+.ai-workflow-reference div {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  aspect-ratio: 4 / 5;
+  border: 1px solid rgba(11, 11, 15, 0.14);
+  background: linear-gradient(135deg, rgba(11, 11, 15, 0.58), rgba(245, 245, 245, 0.5)), url("/images/work/ai-mcp-workflow-cover.png") center / cover;
+  color: #fff;
+  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
+  font-size: 12px;
+}
+
+.ai-workflow-reference img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ai-workflow-reference p {
+  color: rgba(11, 11, 15, 0.68);
+  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
+  font-size: 11px;
+}
+
+.ai-workflow-layers {
+  position: absolute;
+  right: 24px;
+  top: 112px;
+  display: grid;
+  gap: 10px;
+  width: min(390px, 52%);
+}
+
+.ai-workflow-layers div {
+  display: flex;
+  align-items: center;
+  min-height: 72px;
+  padding: 0 14px;
+  border: 1px solid rgba(11, 11, 15, 0.16);
+  background: rgba(255, 255, 255, 0.82);
+  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
+  font-size: 12px;
+}
+
+.ai-workflow-layers div:nth-child(2) {
+  width: 58%;
+}
+
+.ai-workflow-layers div:nth-child(3) {
+  background: #0b0b0f;
+  color: #fff;
+}
+
+.ai-workflow-canvas-area canvas {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  left: 16px;
+  width: calc(100% - 32px);
+  height: 290px;
+  border: 1px solid rgba(11, 11, 15, 0.24);
+  background: linear-gradient(90deg, rgba(11, 11, 15, 0.07) 1px, transparent 1px), linear-gradient(0deg, rgba(11, 11, 15, 0.07) 1px, transparent 1px), rgba(255, 255, 255, 0.78);
+  background-size: 24px 24px;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.ai-workflow-assets {
+  display: grid;
+  gap: 8px;
+  margin: 18px 0;
+}
+
+.ai-workflow-assets div {
+  display: grid;
+  grid-template-columns: 12px 1fr;
+  gap: 7px 10px;
+  padding: 12px;
+  border: 1px solid rgba(11, 11, 15, 0.14);
+  background: #fff;
+}
+
+.ai-workflow-assets i {
+  width: 12px;
+  height: 12px;
+  margin-top: 4px;
+  border: 1px solid rgba(11, 11, 15, 0.32);
+  background: #fff;
+}
+
+.ai-workflow-assets .ready i {
+  background: #0b0b0f;
+}
+
+.ai-workflow-assets strong,
+.ai-workflow-assets small {
+  grid-column: 2;
+}
+
 .task-map-demo__actions button {
   min-height: 38px;
   padding: 9px 12px;

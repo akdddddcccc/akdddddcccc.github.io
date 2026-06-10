@@ -1,9 +1,11 @@
 import TaskMapDemo from "../components/TaskMapDemo.js";
+import AIWorkflowDemo from "../components/AIWorkflowDemo.js";
 
 export default {
   name: "ProjectDetailView",
   components: {
-    TaskMapDemo
+    TaskMapDemo,
+    AIWorkflowDemo
   },
   props: {
     lang: {
@@ -260,6 +262,7 @@ export default {
       </section>
 
       <TaskMapDemo v-if="demoType === 'task-map'" :lang="lang" />
+      <AIWorkflowDemo v-if="demoType === 'ai-workflow'" :lang="lang" />
 
       <section v-if="outputImages.length" class="output-gallery">
         <figure

@@ -923,6 +923,52 @@ export const projects = [
     "legacy": {}
   },
   {
+    "slug": "ai-mcp-workflow",
+    "sourceFile": "AI 工作流.pdf",
+    "category": "vibe-coding",
+    "discipline": "vibe-coding",
+    "image": "/images/work/ai-mcp-workflow-cover.png",
+    "title": {
+      "en": "AI MCP Workflow - Reference-to-layer Prototype",
+      "zh": "AI MCP 工作流——参考图到图层素材自动化"
+    },
+    "details": {
+      "en": {
+        "title": "AI MCP Workflow - Reference-to-layer Prototype",
+        "description": "A vibe coding prototype that turns a manual reference-image workflow into an API-ready web flow: extract text layers, generate top/side/bottom sticker backgrounds, draw blend paths, recolor text, and export layered assets for Figma or Photoshop.",
+        "hero": "/images/work/ai-mcp-workflow-cover.png",
+        "images": [],
+        "iframes": [],
+        "pdfs": [],
+        "demo": {
+          "type": "ai-workflow"
+        },
+        "sectionLabels": [
+          "interactive demo",
+          "blend path",
+          "api plan"
+        ]
+      },
+      "zh": {
+        "title": "AI MCP 工作流——参考图到图层素材自动化",
+        "description": "一个 vibe coding 交互原型，把参考图、文字图层、上贴/侧贴/下贴背景、手绘路径融合、透明图层导出整理成可接入真实 API 的网页流程。",
+        "hero": "/images/work/ai-mcp-workflow-cover.png",
+        "images": [],
+        "iframes": [],
+        "pdfs": [],
+        "demo": {
+          "type": "ai-workflow"
+        },
+        "sectionLabels": [
+          "交互 demo",
+          "路径融合",
+          "API 接入"
+        ]
+      }
+    },
+    "legacy": {}
+  },
+  {
     "slug": "touchdesigner-mix",
     "sourceFile": "",
     "category": "school",
