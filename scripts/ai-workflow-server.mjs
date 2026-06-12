@@ -11,8 +11,8 @@ const IMAGE_QUALITY = process.env.OPENAI_IMAGE_QUALITY || "low";
 const USE_IMAGE_EDITS = process.env.OPENAI_IMAGE_USE_EDITS === "1";
 const IMAGE_TIMEOUT_MS = Number(process.env.OPENAI_IMAGE_TIMEOUT_MS || 180000);
 const IMAGE_EDIT_FIELD = process.env.OPENAI_IMAGE_EDIT_FIELD || "image";
-const DEFAULT_IMAGE_EDIT_SIZE = OPENAI_BASE_URL.includes("api.ofox.io") ? "1024x1024" : "";
-const IMAGE_EDIT_SIZE = process.env.OPENAI_IMAGE_EDIT_SIZE || DEFAULT_IMAGE_EDIT_SIZE;
+const IMAGE_EDIT_SIZE = process.env.OPENAI_IMAGE_EDIT_SIZE || "";
+const IMAGE_EDIT_FALLBACK_SIZE = process.env.OPENAI_IMAGE_EDIT_FALLBACK_SIZE || (OPENAI_BASE_URL.includes("api.ofox.io") ? "1024x1024" : "");
 const IMAGE_EDIT_INCLUDE_EXTRAS = process.env.OPENAI_IMAGE_EDIT_INCLUDE_EXTRAS === "1";
 const TEXT_LAYER_SIZE = process.env.OPENAI_TEXT_LAYER_SIZE || "1536x1024";
 const TEXT_LAYER_USE_API = process.env.OPENAI_TEXT_LAYER_USE_API !== "0";
@@ -225,6 +225,47 @@ function assertStickerImageNotBlank(dataUrl, kind) {
   }
 }
 
+function resizeCoverRgba(source, targetWidth, targetHeight) {
+  const { width: sourceWidth, height: sourceHeight, rgba: sourceRgba } = source;
+  const targetRgba = Buffer.alloc(targetWidth * targetHeight * 4);
+  const scale = Math.max(targetWidth / sourceWidth, targetHeight / sourceHeight);
+  const scaledWidth = sourceWidth * scale;
+  const scaledHeight = sourceHeight * scale;
+  const offsetX = (scaledWidth - targetWidth) / 2;
+  const offsetY = (scaledHeight - targetHeight) / 2;
+
+  for (let y = 0; y < targetHeight; y += 1) {
+    const sourceY = Math.min(sourceHeight - 1, Math.max(0, Math.round((y + offsetY) / scale)));
+    for (let x = 0; x < targetWidth; x += 1) {
+      const sourceX = Math.min(sourceWidth - 1, Math.max(0, Math.round((x + offsetX) / scale)));
+      const sourceIndex = (sourceY * sourceWidth + sourceX) * 4;
+      const targetIndex = (y * targetWidth + x) * 4;
+      targetRgba[targetIndex] = sourceRgba[sourceIndex];
+      targetRgba[targetIndex + 1] = sourceRgba[sourceIndex + 1];
+      targetRgba[targetIndex + 2] = sourceRgba[sourceIndex + 2];
+      targetRgba[targetIndex + 3] = sourceRgba[sourceIndex + 3];
+    }
+  }
+
+  return {
+    width: targetWidth,
+    height: targetHeight,
+    rgba: targetRgba
+  };
+}
+
+function normalizeStickerImageSize(dataUrl, kind) {
+  const parsed = dataUrlToBuffer(dataUrl);
+  const spec = stickerSpecs[kind];
+  if (!parsed || parsed.mime !== "image/png" || !spec) return dataUrl;
+
+  const png = decodePngToRgba(parsed.buffer);
+  if (png.width === spec.width && png.height === spec.height) return dataUrl;
+
+  const normalized = resizeCoverRgba(png, spec.width, spec.height);
+  return `data:image/png;base64,${encodeRgbaToPng(normalized).toString("base64")}`;
+}
+
 async function requestCheckedStickerImage(kind, prompt, referenceImage, editSize) {
   const image = await requestOpenAIImage({
     prompt,
@@ -234,7 +275,7 @@ async function requestCheckedStickerImage(kind, prompt, referenceImage, editSize
   });
   const dataUrl = await imageUrlToDataUrl(image);
   assertStickerImageNotBlank(dataUrl, kind);
-  return dataUrl;
+  return normalizeStickerImageSize(dataUrl, kind);
 }
 
 async function requestStickerImage(kind, prompt, referenceImage) {
@@ -257,12 +298,12 @@ async function requestStickerImage(kind, prompt, referenceImage) {
   if (directResult) return { image: directResult, warning: "" };
 
   const requestedEditSize = IMAGE_EDIT_SIZE || stickerSpecs[kind].size;
-  if (USE_IMAGE_EDITS && referenceImage && requestedEditSize !== "1024x1024") {
-    const squareResult = await tryAttempt("reference edit 1024x1024", { editSize: "1024x1024" });
+  if (USE_IMAGE_EDITS && referenceImage && IMAGE_EDIT_FALLBACK_SIZE && requestedEditSize !== IMAGE_EDIT_FALLBACK_SIZE) {
+    const squareResult = await tryAttempt(`reference edit ${IMAGE_EDIT_FALLBACK_SIZE}`, { editSize: IMAGE_EDIT_FALLBACK_SIZE });
     if (squareResult) {
       return {
         image: squareResult,
-        warning: `${stickerSpecs[kind].zhName} 的原比例图生图失败，已用 1024x1024 兼容尺寸生成。`
+        warning: `${stickerSpecs[kind].zhName} 的原比例图生图失败，已用 ${IMAGE_EDIT_FALLBACK_SIZE} 兼容尺寸生成并裁成贴片比例。`
       };
     }
   }
@@ -599,6 +640,7 @@ async function handleStickerBackgrounds(body) {
       timeoutMs: IMAGE_TIMEOUT_MS,
       imageEditField: IMAGE_EDIT_FIELD,
       imageEditSize: IMAGE_EDIT_SIZE || "per-sticker-size",
+      imageEditFallbackSize: IMAGE_EDIT_FALLBACK_SIZE || "off",
       imageEditIncludeExtras: IMAGE_EDIT_INCLUDE_EXTRAS,
       generationMode: GENERATION_MODE,
       assets: Object.fromEntries(kinds.map((kind) => [kind, fallbackSticker(kind, body.promptText)])),
@@ -652,6 +694,7 @@ async function handleStickerBackgrounds(body) {
     timeoutMs: IMAGE_TIMEOUT_MS,
     imageEditField: IMAGE_EDIT_FIELD,
     imageEditSize: IMAGE_EDIT_SIZE || "per-sticker-size",
+    imageEditFallbackSize: IMAGE_EDIT_FALLBACK_SIZE || "off",
     imageEditIncludeExtras: IMAGE_EDIT_INCLUDE_EXTRAS,
     generationMode: GENERATION_MODE,
     assets: results,
@@ -827,6 +870,7 @@ async function workflowStatus() {
     timeoutMs: IMAGE_TIMEOUT_MS,
     imageEditField: IMAGE_EDIT_FIELD,
     imageEditSize: IMAGE_EDIT_SIZE || "per-sticker-size",
+    imageEditFallbackSize: IMAGE_EDIT_FALLBACK_SIZE || "off",
     imageEditIncludeExtras: IMAGE_EDIT_INCLUDE_EXTRAS,
     textLayerSize: TEXT_LAYER_SIZE,
     textLayerUseApi: TEXT_LAYER_USE_API,
