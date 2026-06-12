@@ -97,11 +97,25 @@ function buildStickerPrompt(kind, userPrompt) {
   ].filter(Boolean).join("\n");
 }
 
-function dataUrlToBlob(dataUrl) {
+function extensionForMime(mime) {
+  if (mime === "image/jpeg") return "jpg";
+  if (mime === "image/webp") return "webp";
+  return "png";
+}
+
+function dataUrlToUploadFile(dataUrl, index) {
   if (!dataUrl || !dataUrl.startsWith("data:")) return null;
   const match = dataUrl.match(/^data:([^;,]+);base64,(.+)$/);
   if (!match) return null;
-  return new Blob([Buffer.from(match[2], "base64")], { type: match[1] });
+  const mime = match[1] || "image/png";
+  const buffer = Buffer.from(match[2], "base64");
+  const filename = `reference-${index + 1}.${extensionForMime(mime)}`;
+  if (typeof File !== "undefined") {
+    return new File([buffer], filename, { type: mime });
+  }
+  const blob = new Blob([buffer], { type: mime });
+  blob.name = filename;
+  return blob;
 }
 
 async function requestOpenAIImage({ prompt, size, referenceImage, referenceImages, editSize }) {
@@ -114,8 +128,8 @@ async function requestOpenAIImage({ prompt, size, referenceImage, referenceImage
 
   try {
     if (USE_IMAGE_EDITS && inputImages.length) {
-      const imageBlobs = inputImages.map((image) => dataUrlToBlob(image)).filter(Boolean);
-      if (imageBlobs.length) {
+      const imageFiles = inputImages.map((image, index) => dataUrlToUploadFile(image, index)).filter(Boolean);
+      if (imageFiles.length) {
         const body = new FormData();
         body.append("model", IMAGE_MODEL);
         body.append("prompt", prompt);
@@ -124,8 +138,8 @@ async function requestOpenAIImage({ prompt, size, referenceImage, referenceImage
           body.append("quality", IMAGE_QUALITY);
           body.append("output_format", "png");
         }
-        imageBlobs.forEach((imageBlob, index) => {
-          body.append(IMAGE_EDIT_FIELD, imageBlob, `reference-${index + 1}.png`);
+        imageFiles.forEach((imageFile, index) => {
+          body.append(IMAGE_EDIT_FIELD, imageFile, imageFile.name || `reference-${index + 1}.png`);
         });
         const response = await fetch(`${OPENAI_BASE_URL}/images/edits`, {
           method: "POST",
