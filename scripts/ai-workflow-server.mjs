@@ -189,15 +189,31 @@ async function imageUrlToDataUrl(imageUrl) {
   if (!response.ok) {
     throw new Error(`Generated image URL could not be read: ${response.status}`);
   }
-  const contentType = response.headers.get("content-type") || "image/png";
   const buffer = Buffer.from(await response.arrayBuffer());
+  const headerType = (response.headers.get("content-type") || "").split(";")[0].trim();
+  const contentType = sniffImageMime(buffer) || headerType || "image/png";
   return `data:${contentType};base64,${buffer.toString("base64")}`;
 }
 
-function assertStickerImageNotBlank(dataUrl, kind) {
-  const parsed = dataUrlToBuffer(dataUrl);
-  if (!parsed || parsed.mime !== "image/png") return;
+function sniffImageMime(buffer) {
+  if (buffer.subarray(0, 8).toString("hex") === "89504e470d0a1a0a") return "image/png";
+  if (buffer.subarray(0, 3).toString("hex") === "ffd8ff") return "image/jpeg";
+  if (buffer.subarray(0, 4).toString("ascii") === "RIFF" && buffer.subarray(8, 12).toString("ascii") === "WEBP") return "image/webp";
+  return "";
+}
 
+function parsedImageBuffer(dataUrl) {
+  const parsed = dataUrlToBuffer(dataUrl);
+  if (!parsed) return null;
+  return {
+    ...parsed,
+    mime: sniffImageMime(parsed.buffer) || parsed.mime
+  };
+}
+
+function analyzePngSticker(dataUrl) {
+  const parsed = parsedImageBuffer(dataUrl);
+  if (!parsed || parsed.mime !== "image/png") return null;
   const { width, height, rgba } = decodePngToRgba(parsed.buffer);
   const total = width * height;
   let visible = 0;
@@ -220,8 +236,26 @@ function assertStickerImageNotBlank(dataUrl, kind) {
 
   const meaningfulRatio = visible ? meaningful / visible : 0;
   const averageSpread = visible ? channelSpreadTotal / visible : 0;
-  if (visible < total * 0.08 || (meaningfulRatio < 0.006 && averageSpread < 2.2)) {
-    throw new Error(`${stickerSpecs[kind]?.zhName || kind} returned a near-blank white image from the image gateway`);
+  return {
+    width,
+    height,
+    mime: parsed.mime,
+    visibleRatio: total ? visible / total : 0,
+    meaningfulRatio,
+    averageSpread
+  };
+}
+
+function assertStickerImageNotBlank(dataUrl, kind) {
+  const stats = analyzePngSticker(dataUrl);
+  if (!stats) return;
+  if (stats.visibleRatio < 0.08 || (stats.meaningfulRatio < 0.006 && stats.averageSpread < 2.2)) {
+    throw new Error([
+      `${stickerSpecs[kind]?.zhName || kind} returned a near-blank white image from the image gateway`,
+      `size=${stats.width}x${stats.height}`,
+      `meaningful=${stats.meaningfulRatio.toFixed(4)}`,
+      `spread=${stats.averageSpread.toFixed(2)}`
+    ].join(" "));
   }
 }
 
@@ -255,7 +289,7 @@ function resizeCoverRgba(source, targetWidth, targetHeight) {
 }
 
 function normalizeStickerImageSize(dataUrl, kind) {
-  const parsed = dataUrlToBuffer(dataUrl);
+  const parsed = parsedImageBuffer(dataUrl);
   const spec = stickerSpecs[kind];
   if (!parsed || parsed.mime !== "image/png" || !spec) return dataUrl;
 
