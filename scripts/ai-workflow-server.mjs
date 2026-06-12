@@ -18,6 +18,7 @@ const TEXT_LAYER_SIZE = process.env.OPENAI_TEXT_LAYER_SIZE || "1536x1024";
 const TEXT_LAYER_USE_API = process.env.OPENAI_TEXT_LAYER_USE_API !== "0";
 const GENERATION_MODE = process.env.AI_WORKFLOW_GENERATION_MODE || "sequential";
 const WORKFLOW_DOC_PATH = "/Users/eeo/Documents/直播间贴片自动化/直播间贴片生图工作流_主文档.md";
+const RUNTIME_BUILD = "2026-06-12-upload-file-v1";
 
 const stickerSpecs = {
   top: {
@@ -691,6 +692,7 @@ async function handleStickerBackgrounds(body) {
       imageEditFallbackSize: IMAGE_EDIT_FALLBACK_SIZE || "off",
       imageEditIncludeExtras: IMAGE_EDIT_INCLUDE_EXTRAS,
       generationMode: GENERATION_MODE,
+      runtimeBuild: RUNTIME_BUILD,
       assets: Object.fromEntries(kinds.map((kind) => [kind, fallbackSticker(kind, body.promptText)])),
       prompts,
       errors: {},
@@ -745,6 +747,7 @@ async function handleStickerBackgrounds(body) {
     imageEditFallbackSize: IMAGE_EDIT_FALLBACK_SIZE || "off",
     imageEditIncludeExtras: IMAGE_EDIT_INCLUDE_EXTRAS,
     generationMode: GENERATION_MODE,
+    runtimeBuild: RUNTIME_BUILD,
     assets: results,
     prompts,
     errors,
@@ -923,6 +926,7 @@ async function workflowStatus() {
     textLayerSize: TEXT_LAYER_SIZE,
     textLayerUseApi: TEXT_LAYER_USE_API,
     generationMode: GENERATION_MODE,
+    runtimeBuild: RUNTIME_BUILD,
     workflowDocPath: WORKFLOW_DOC_PATH,
     workflowDocLoaded: Boolean(workflowDoc),
     workflowDocChars: workflowDoc.length
