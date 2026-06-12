@@ -18,7 +18,7 @@ const TEXT_LAYER_SIZE = process.env.OPENAI_TEXT_LAYER_SIZE || "1536x1024";
 const TEXT_LAYER_USE_API = process.env.OPENAI_TEXT_LAYER_USE_API !== "0";
 const GENERATION_MODE = process.env.AI_WORKFLOW_GENERATION_MODE || "sequential";
 const WORKFLOW_DOC_PATH = "/Users/eeo/Documents/直播间贴片自动化/直播间贴片生图工作流_主文档.md";
-const RUNTIME_BUILD = "2026-06-12-upload-file-v1";
+const RUNTIME_BUILD = "2026-06-12-single-sticker-v1";
 
 const stickerSpecs = {
   top: {
@@ -676,8 +676,10 @@ async function handleStickerBackgrounds(body) {
     kind,
     buildStickerPrompt(kind, body.promptText || "")
   ]));
+  const singleKind = kinds.includes(body.kind) ? body.kind : "";
 
   if (!API_KEY) {
+    const fallbackKinds = singleKind ? [singleKind] : kinds;
     return {
       ok: true,
       openAIRequestOk: false,
@@ -693,7 +695,7 @@ async function handleStickerBackgrounds(body) {
       imageEditIncludeExtras: IMAGE_EDIT_INCLUDE_EXTRAS,
       generationMode: GENERATION_MODE,
       runtimeBuild: RUNTIME_BUILD,
-      assets: Object.fromEntries(kinds.map((kind) => [kind, fallbackSticker(kind, body.promptText)])),
+      assets: Object.fromEntries(fallbackKinds.map((kind) => [kind, fallbackSticker(kind, body.promptText)])),
       prompts,
       errors: {},
       message: "未检测到 OPENAI_API_KEY，已返回本地 SVG 草稿和完整 prompt。"
@@ -704,7 +706,16 @@ async function handleStickerBackgrounds(body) {
   const errors = {};
   const warnings = {};
 
-  if (GENERATION_MODE === "parallel") {
+  if (singleKind) {
+    try {
+      const result = await requestStickerImage(singleKind, prompts[singleKind], body.referenceImage);
+      results[singleKind] = result.image;
+      if (result.warning) warnings[singleKind] = result.warning;
+    } catch (error) {
+      errors[singleKind] = error.message || "Image generation failed";
+      results[singleKind] = fallbackSticker(singleKind, body.promptText);
+    }
+  } else if (GENERATION_MODE === "parallel") {
     const settled = await Promise.allSettled(kinds.map(async (kind) => [
       kind,
       await requestStickerImage(kind, prompts[kind], body.referenceImage)

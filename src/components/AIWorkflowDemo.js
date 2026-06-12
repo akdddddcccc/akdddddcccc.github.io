@@ -558,40 +558,59 @@ export default {
       }
       this.runningStep = "sticker-bg";
       this.statusText = this.lang === "zh"
-        ? "正在按套组顺序生成上贴、侧贴、下贴，可能需要几分钟..."
-        : "Generating the sticker set in sequence. This can take a few minutes...";
+        ? "正在按套组顺序生成上贴、侧贴、下贴，每张会单独请求以避免云端超时..."
+        : "Generating the sticker set one by one to avoid cloud timeouts...";
       try {
-        const data = await this.postWorkflow("/api/ai-workflow/sticker-backgrounds", {
-          lang: this.lang,
-          promptText: this.promptText,
-          referenceImage: this.referenceDataUrl
-        });
-        this.stickerOutputs = {
-          top: data.assets?.top || "",
-          side: data.assets?.side || "",
-          bottom: data.assets?.bottom || ""
+        const kinds = ["top", "side", "bottom"];
+        const kindLabels = {
+          top: this.lang === "zh" ? "上贴" : "top sticker",
+          side: this.lang === "zh" ? "侧贴" : "side sticker",
+          bottom: this.lang === "zh" ? "下贴" : "bottom sticker"
         };
-        this.stickerPrompts = {
-          top: data.prompts?.top || "",
-          side: data.prompts?.side || "",
-          bottom: data.prompts?.bottom || ""
-        };
+        const allErrors = {};
+        const allWarnings = {};
+        let allGenerated = true;
+
+        for (let index = 0; index < kinds.length; index += 1) {
+          const kind = kinds[index];
+          this.statusText = this.lang === "zh"
+            ? `正在生成${kindLabels[kind]}（${index + 1}/3），保持同一参考图和套系规则...`
+            : `Generating ${kindLabels[kind]} (${index + 1}/3) with the same reference and series rules...`;
+          const data = await this.postWorkflow("/api/ai-workflow/sticker-backgrounds", {
+            lang: this.lang,
+            kind,
+            promptText: this.promptText,
+            referenceImage: this.referenceDataUrl
+          });
+          this.stickerOutputs = {
+            ...this.stickerOutputs,
+            [kind]: data.assets?.[kind] || ""
+          };
+          this.stickerPrompts = {
+            ...this.stickerPrompts,
+            [kind]: data.prompts?.[kind] || ""
+          };
+          if (!data.generated) allGenerated = false;
+          if (data.errors?.[kind]) allErrors[kind] = data.errors[kind];
+          if (data.warnings?.[kind]) allWarnings[kind] = data.warnings[kind];
+        }
+
         this.assets[1].ready = true;
         this.assets[2].ready = true;
         this.assets[3].ready = true;
-        const errorText = data.errors && Object.keys(data.errors).length
-          ? Object.entries(data.errors).map(([key, value]) => `${key}: ${value}`).join(" / ")
+        const errorText = Object.keys(allErrors).length
+          ? Object.entries(allErrors).map(([key, value]) => `${key}: ${value}`).join(" / ")
           : "";
-        const warningText = data.warnings && Object.keys(data.warnings).length
-          ? Object.values(data.warnings).join(" / ")
+        const warningText = Object.keys(allWarnings).length
+          ? Object.values(allWarnings).join(" / ")
           : "";
-        this.statusText = data.generated
+        this.statusText = allGenerated
           ? [
             this.lang === "zh" ? "上贴、侧贴、下贴已真实生成" : "Sticker backgrounds generated",
             warningText
           ].filter(Boolean).join(" / ")
           : [
-            data.message,
+            this.lang === "zh" ? "部分贴片已回退成本地草稿。" : "Some stickers fell back to local drafts.",
             warningText,
             errorText,
             errorText && this.lang === "zh" ? "如果连续出现超时、余额不足、rate limit 或 quota，通常就是网关额度/限流问题。" : ""
