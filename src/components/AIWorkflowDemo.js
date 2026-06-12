@@ -1566,10 +1566,10 @@ export default {
                     <path :d="bottomMaskD" fill="white" filter="url(#aiFadeBlur)" />
                   </mask>
                 </defs>
-                <image v-if="stickerOutputs.top" class="ai-sticker-layer ai-sticker-layer--top" :href="stickerOutputs.top" x="0" :y="topStickerRenderY" :width="compositionSize.width" :height="topStickerRenderHeight" preserveAspectRatio="xMidYMin slice" mask="url(#aiTopStickerMask)" />
-                <rect v-else class="ai-sticker-layer ai-sticker-fill ai-sticker-layer--top" x="0" :y="topStickerRenderY" :width="compositionSize.width" :height="topStickerRenderHeight" mask="url(#aiTopStickerMask)" />
-                <image v-if="stickerOutputs.bottom" class="ai-sticker-layer ai-sticker-layer--bottom" :href="stickerOutputs.bottom" x="0" :y="bottomStickerRenderY" :width="compositionSize.width" :height="bottomStickerRenderHeight" preserveAspectRatio="xMidYMax slice" mask="url(#aiBottomStickerMask)" />
-                <rect v-else class="ai-sticker-layer ai-sticker-fill ai-sticker-layer--bottom" x="0" :y="bottomStickerRenderY" :width="compositionSize.width" :height="bottomStickerRenderHeight" mask="url(#aiBottomStickerMask)" />
+                <image v-if="stickerOutputs.top" class="ai-sticker-layer ai-sticker-layer--top" :href="stickerOutputs.top" x="0" y="0" :width="compositionSize.width" :height="topStickerHeight" preserveAspectRatio="xMidYMin meet" mask="url(#aiTopStickerMask)" />
+                <rect v-else class="ai-sticker-layer ai-sticker-fill ai-sticker-layer--top" x="0" y="0" :width="compositionSize.width" :height="topStickerHeight" mask="url(#aiTopStickerMask)" />
+                <image v-if="stickerOutputs.bottom" class="ai-sticker-layer ai-sticker-layer--bottom" :href="stickerOutputs.bottom" x="0" :y="bottomStickerY" :width="compositionSize.width" :height="bottomStickerHeight" preserveAspectRatio="xMidYMax meet" mask="url(#aiBottomStickerMask)" />
+                <rect v-else class="ai-sticker-layer ai-sticker-fill ai-sticker-layer--bottom" x="0" :y="bottomStickerY" :width="compositionSize.width" :height="bottomStickerHeight" mask="url(#aiBottomStickerMask)" />
                 <text v-if="!stickerOutputs.top" class="ai-sticker-label" :x="compositionSize.width / 2" :y="Math.max(64, topStickerHeight * 0.46)" text-anchor="middle">{{ labels.topBg }}</text>
                 <text v-if="!stickerOutputs.bottom" class="ai-sticker-label" :x="compositionSize.width / 2" :y="bottomStickerY + bottomStickerHeight * 0.55" text-anchor="middle">{{ labels.bottomBg }}</text>
               </svg>
