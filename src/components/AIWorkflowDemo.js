@@ -528,7 +528,21 @@ export default {
         },
         body: JSON.stringify(payload)
       });
-      const data = await response.json();
+      const responseText = await response.text();
+      let data = {};
+      try {
+        data = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        const isHtml = responseText.trim().startsWith("<");
+        const statusHint = response.status === 504
+          ? (this.lang === "zh" ? "云函数执行超时，请稍后重试或拆分生成。" : "Cloud function timed out. Try again later or split the generation.")
+          : "";
+        throw new Error([
+          statusHint || (this.lang === "zh" ? `接口返回了非 JSON 内容（HTTP ${response.status}）。` : `The API returned non-JSON content (HTTP ${response.status}).`),
+          isHtml && this.lang === "zh" ? "这通常表示 EdgeOne 返回了错误页，而不是工作流接口结果。" : "",
+          isHtml && this.lang !== "zh" ? "This usually means EdgeOne returned an error page instead of a workflow result." : ""
+        ].filter(Boolean).join(" "));
+      }
       if (!response.ok) {
         throw new Error(data.message || "Workflow request failed");
       }

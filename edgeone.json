@@ -8,7 +8,7 @@
       "includeFiles": [
         "scripts/ai-workflow-server.mjs"
       ],
-      "maxDuration": 180
+      "maxDuration": 120
     }
   }
 }
