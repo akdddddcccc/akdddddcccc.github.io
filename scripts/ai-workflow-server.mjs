@@ -9,7 +9,7 @@ const OPENAI_BASE_URL = (process.env.OPENAI_BASE_URL || "https://api.openai.com/
 const IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || "gpt-image-2";
 const IMAGE_QUALITY = process.env.OPENAI_IMAGE_QUALITY || "low";
 const USE_IMAGE_EDITS = process.env.OPENAI_IMAGE_USE_EDITS === "1";
-const IMAGE_TIMEOUT_MS = Number(process.env.OPENAI_IMAGE_TIMEOUT_MS || 180000);
+const IMAGE_TIMEOUT_MS = Number(process.env.OPENAI_IMAGE_TIMEOUT_MS || 90000);
 const IMAGE_EDIT_FIELD = process.env.OPENAI_IMAGE_EDIT_FIELD || "image";
 const IMAGE_EDIT_SIZE = process.env.OPENAI_IMAGE_EDIT_SIZE || "";
 const IMAGE_EDIT_FALLBACK_SIZE = process.env.OPENAI_IMAGE_EDIT_FALLBACK_SIZE || (OPENAI_BASE_URL.includes("api.ofox.io") ? "1024x1024" : "");
@@ -18,7 +18,7 @@ const TEXT_LAYER_SIZE = process.env.OPENAI_TEXT_LAYER_SIZE || "1536x1024";
 const TEXT_LAYER_USE_API = process.env.OPENAI_TEXT_LAYER_USE_API !== "0";
 const GENERATION_MODE = process.env.AI_WORKFLOW_GENERATION_MODE || "sequential";
 const WORKFLOW_DOC_PATH = "/Users/eeo/Documents/直播间贴片自动化/直播间贴片生图工作流_主文档.md";
-const RUNTIME_BUILD = "2026-06-12-single-sticker-v1";
+const RUNTIME_BUILD = "2026-06-12-single-sticker-resilient-v1";
 
 const stickerSpecs = {
   top: {

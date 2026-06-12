@@ -576,23 +576,31 @@ export default {
           this.statusText = this.lang === "zh"
             ? `正在生成${kindLabels[kind]}（${index + 1}/3），保持同一参考图和套系规则...`
             : `Generating ${kindLabels[kind]} (${index + 1}/3) with the same reference and series rules...`;
-          const data = await this.postWorkflow("/api/ai-workflow/sticker-backgrounds", {
-            lang: this.lang,
-            kind,
-            promptText: this.promptText,
-            referenceImage: this.referenceDataUrl
-          });
-          this.stickerOutputs = {
-            ...this.stickerOutputs,
-            [kind]: data.assets?.[kind] || ""
-          };
-          this.stickerPrompts = {
-            ...this.stickerPrompts,
-            [kind]: data.prompts?.[kind] || ""
-          };
-          if (!data.generated) allGenerated = false;
-          if (data.errors?.[kind]) allErrors[kind] = data.errors[kind];
-          if (data.warnings?.[kind]) allWarnings[kind] = data.warnings[kind];
+          try {
+            const data = await this.postWorkflow("/api/ai-workflow/sticker-backgrounds", {
+              lang: this.lang,
+              kind,
+              promptText: this.promptText,
+              referenceImage: this.referenceDataUrl
+            });
+            this.stickerOutputs = {
+              ...this.stickerOutputs,
+              [kind]: data.assets?.[kind] || ""
+            };
+            this.stickerPrompts = {
+              ...this.stickerPrompts,
+              [kind]: data.prompts?.[kind] || ""
+            };
+            if (!data.generated) allGenerated = false;
+            if (data.errors?.[kind]) allErrors[kind] = data.errors[kind];
+            if (data.warnings?.[kind]) allWarnings[kind] = data.warnings[kind];
+          } catch (error) {
+            allGenerated = false;
+            allErrors[kind] = error.message || "Image request failed";
+            this.statusText = this.lang === "zh"
+              ? `${kindLabels[kind]}生成失败，继续尝试下一张...`
+              : `${kindLabels[kind]} failed. Continuing with the next sticker...`;
+          }
         }
 
         this.assets[1].ready = true;
