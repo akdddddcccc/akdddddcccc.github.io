@@ -272,7 +272,7 @@ a {
 .site-header {
   position: sticky;
   top: 0;
-  z-index: 5;
+  z-index: 30;
   display: grid;
   grid-template-columns: 148px 1fr;
   align-items: start;
@@ -917,6 +917,28 @@ a {
   background: #fff;
 }
 
+.ai-service-status {
+  display: inline-flex;
+  width: fit-content;
+  margin: 14px 0 0;
+  padding: 7px 10px;
+  border: 1px solid rgba(11, 11, 15, 0.2);
+  background: #fff;
+  color: rgba(11, 11, 15, 0.72);
+  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
+  font-size: 12px;
+}
+
+.ai-service-status.online {
+  border-color: rgba(49, 93, 71, 0.42);
+  color: #315d47;
+}
+
+.ai-service-status.keyless {
+  border-color: rgba(139, 113, 47, 0.42);
+  color: #765f23;
+}
+
 .ai-workflow-tabs a {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -956,6 +978,10 @@ a {
   grid-template-rows: 1fr auto;
 }
 
+#sticker-bg {
+  min-height: 0;
+}
+
 .ai-workflow-column {
   min-width: 0;
   padding: 22px;
@@ -969,6 +995,7 @@ a {
   position: relative;
   display: grid;
   place-items: center;
+  gap: 6px;
   min-height: 150px;
   margin: 0 0 18px;
   padding: 18px;
@@ -976,6 +1003,20 @@ a {
   background: #fff;
   text-align: center;
   cursor: pointer;
+}
+
+.ai-workflow-upload.ready {
+  border-style: solid;
+  border-color: rgba(31, 104, 78, 0.52);
+  background: #f7fbf8;
+}
+
+.ai-workflow-upload.active,
+.ai-workflow-upload:focus-visible {
+  border-style: solid;
+  border-color: #0b0b0f;
+  box-shadow: inset 0 0 0 1px #0b0b0f;
+  outline: 0;
 }
 
 .ai-workflow-upload--short {
@@ -1005,9 +1046,37 @@ a {
   font-weight: 400;
 }
 
+.ai-workflow-upload > img {
+  width: min(180px, 100%);
+  max-height: 92px;
+  border: 1px solid rgba(11, 11, 15, 0.16);
+  object-fit: contain;
+  background:
+    linear-gradient(45deg, rgba(11, 11, 15, 0.045) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(11, 11, 15, 0.045) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(11, 11, 15, 0.045) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(11, 11, 15, 0.045) 75%),
+    #fff;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  background-size: 16px 16px;
+}
+
+.ai-workflow-upload--tall > img {
+  width: min(360px, 100%);
+  max-height: 320px;
+}
+
 .ai-workflow-upload span,
 .ai-workflow-upload small {
   display: block;
+}
+
+.ai-workflow-upload em {
+  display: block;
+  color: #1f684e;
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1.45;
 }
 
 .ai-workflow-field {
@@ -1108,7 +1177,14 @@ a {
 
 .ai-sticker-board {
   position: relative;
-  overflow: hidden;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  width: min(100%, 240px);
+  min-height: 0;
+  margin: 0 auto;
+  overflow: visible;
+  padding: 12px;
 }
 
 .ai-sticker-board > img {
@@ -1121,45 +1197,122 @@ a {
 }
 
 .ai-sticker-piece {
-  position: absolute;
-  display: flex;
-  align-items: flex-start;
-  padding: 18px;
-  background: #101114;
+  position: relative;
+  display: grid;
+  align-items: start;
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid rgba(11, 11, 15, 0.16);
+  background: rgba(255, 255, 255, 0.82);
   color: #fff;
   font-size: 14px;
   font-weight: 700;
 }
 
+.ai-sticker-piece img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.ai-sticker-piece span {
+  position: relative;
+  z-index: 1;
+  justify-self: start;
+  margin: 8px;
+  padding: 3px 6px;
+  background: rgba(11, 11, 15, 0.62);
+  font-size: 11px;
+}
+
+.ai-download-original {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 2;
+  min-height: 26px;
+  padding: 5px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  background: rgba(11, 11, 15, 0.68);
+  color: #fff;
+  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.ai-download-original:hover {
+  background: #0b0b0f;
+}
+
+.ai-generation-loader {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 42px;
+  padding: 28px;
+  border: 1px solid rgba(11, 11, 15, 0.18);
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.92), rgba(245, 245, 240, 0.88)),
+    rgba(255, 255, 255, 0.9);
+  color: #0b0b0f;
+  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
+  text-align: center;
+  pointer-events: none;
+}
+
+.ai-generation-loader .figma-loader__rule {
+  position: relative;
+  top: auto;
+  left: auto;
+  width: min(220px, 52%);
+  transform: none;
+}
+
+.ai-generation-loader small {
+  max-width: 420px;
+  color: rgba(11, 11, 15, 0.62);
+  font-family: "MiSans", "Alibaba PuHuiTi", sans-serif;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
 .ai-sticker-piece--top {
-  top: 0;
-  right: 0;
-  width: 75%;
-  height: 31%;
+  max-width: 100%;
 }
 
 .ai-sticker-piece--side {
-  top: 35%;
-  left: 2%;
-  width: 23%;
-  height: 35%;
+  width: min(46%, 110px);
 }
 
 .ai-sticker-piece--bottom {
-  right: 0;
-  bottom: 0;
-  width: 75%;
-  height: 31%;
+  max-width: 100%;
 }
 
 .ai-text-preview {
+  position: relative;
   display: flex;
   align-items: flex-start;
   min-height: 170px;
-  padding: 20px;
+  padding: 20px 20px 58px;
   background: #101114;
   color: #fff;
   font-weight: 700;
+}
+
+.ai-text-output-stack {
+  position: relative;
+  min-height: 660px;
+}
+
+.ai-text-preview img {
+  width: 100%;
+  max-height: 150px;
+  object-fit: contain;
 }
 
 .ai-transparent-export {
@@ -1183,6 +1336,104 @@ a {
   font-size: 13px;
 }
 
+.ai-transparent-export img {
+  width: calc(100% - 40px);
+  max-height: 220px;
+  margin: 4px 20px 20px;
+  object-fit: contain;
+}
+
+.ai-text-audit {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid rgba(139, 113, 47, 0.34);
+  background: #fffaf0;
+  color: #0b0b0f;
+}
+
+.ai-text-audit.checked {
+  border-color: rgba(49, 93, 71, 0.38);
+  background: #f4faf6;
+}
+
+.ai-text-audit > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.ai-text-audit > div span,
+.ai-text-audit dt {
+  color: rgba(11, 11, 15, 0.62);
+  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.ai-text-audit > div strong {
+  padding: 4px 8px;
+  border: 1px solid currentColor;
+  color: #765f23;
+  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.ai-text-audit.checked > div strong {
+  color: #315d47;
+}
+
+.ai-text-audit p {
+  margin: 0;
+  color: rgba(11, 11, 15, 0.72);
+  font-size: 13px;
+  line-height: 1.58;
+}
+
+.ai-text-audit dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.ai-text-audit dd {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid rgba(11, 11, 15, 0.14);
+  background: #fff;
+  font-size: 14px;
+  font-weight: 680;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.ai-text-audit label {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  gap: 10px;
+  align-items: start;
+  font-size: 13px;
+  line-height: 1.45;
+  cursor: pointer;
+}
+
+.ai-text-audit input {
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  accent-color: #315d47;
+}
+
+.ai-text-audit input:disabled + span {
+  color: rgba(11, 11, 15, 0.44);
+}
+
 .ai-workflow-heading-inline {
   display: flex;
   justify-content: space-between;
@@ -1192,8 +1443,13 @@ a {
 
 .ai-composition-board {
   position: relative;
-  min-height: 560px;
-  overflow: hidden;
+  z-index: 0;
+  isolation: isolate;
+  width: min(100%, 420px);
+  aspect-ratio: 9 / 16;
+  min-height: 0;
+  margin: 0 auto;
+  overflow: visible;
   border: 1px solid rgba(11, 11, 15, 0.42);
   background:
     linear-gradient(90deg, rgba(11, 11, 15, 0.05) 1px, transparent 1px),
@@ -1202,28 +1458,90 @@ a {
   background-size: 42px 42px;
 }
 
-.ai-composition-board > img {
+.ai-reference-style-toggle {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 10px;
+  align-items: start;
+  margin: 12px 0 4px;
+  padding: 12px;
+  border: 1px solid rgba(11, 11, 15, 0.14);
+  background: #fff;
+  cursor: pointer;
+}
+
+.ai-reference-style-toggle.active {
+  border-color: rgba(49, 93, 71, 0.46);
+  background: rgba(49, 93, 71, 0.06);
+}
+
+.ai-reference-style-toggle input {
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  accent-color: #315d47;
+}
+
+.ai-reference-style-toggle input:disabled + span {
+  color: rgba(11, 11, 15, 0.42);
+}
+
+.ai-reference-style-toggle span {
+  display: grid;
+  gap: 4px;
+}
+
+.ai-reference-style-toggle strong {
+  font-size: 12px;
+  font-weight: 680;
+}
+
+.ai-reference-style-toggle small {
+  color: rgba(11, 11, 15, 0.56);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.ai-composition-base {
   position: absolute;
   inset: 0;
   z-index: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 0.48;
+  opacity: 1;
 }
 
 .ai-composition-center {
   position: absolute;
-  top: 28%;
-  right: 0;
-  left: 27%;
+  inset: 28% 10%;
   z-index: 1;
   display: grid;
   place-items: center;
-  height: 36%;
-  color: rgba(11, 11, 15, 0.72);
+  color: rgba(11, 11, 15, 0.46);
   font-weight: 700;
   text-align: center;
+  pointer-events: none;
+}
+
+.ai-composition-base + .ai-composition-center {
+  display: none;
+}
+
+.ai-mobile-safe-lines {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  pointer-events: none;
+}
+
+.ai-mobile-safe-lines span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-left: 1px dashed rgba(255, 255, 255, 0.8);
+  box-shadow: 0 0 0 1px rgba(11, 11, 15, 0.28);
 }
 
 .ai-sticker-composite {
@@ -1232,7 +1550,17 @@ a {
   z-index: 2;
   width: 100%;
   height: 100%;
+  overflow: hidden;
   pointer-events: none;
+}
+
+.ai-sticker-layer {
+  transition: opacity 0.16s ease;
+}
+
+.ai-sticker-composite.is-peeking-top .ai-sticker-layer--top,
+.ai-sticker-composite.is-peeking-bottom .ai-sticker-layer--bottom {
+  opacity: 0.64;
 }
 
 .ai-sticker-fill {
@@ -1252,26 +1580,56 @@ a {
 
 .ai-draggable-text-layer {
   position: absolute;
-  z-index: 4;
+  z-index: 5;
   display: grid;
   place-items: center;
-  padding: 12px 18px;
+  padding: 2.2% 3%;
   border: 1px dashed rgba(255, 255, 255, 0.82);
   background: rgba(255, 255, 255, 0.08);
   color: #fff;
-  cursor: move;
+  cursor: default;
   user-select: none;
   touch-action: none;
 }
 
+.ai-draggable-text-layer:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.9);
+  outline-offset: 2px;
+}
+
+.ai-composition-board.is-side-mode .ai-draggable-text-layer {
+  pointer-events: none;
+}
+
 .ai-text-layer-content {
   width: 100%;
+  height: 100%;
   overflow: hidden;
-  font-size: 20px;
+  font-size: 14px;
   font-weight: 760;
   line-height: 1.35;
   text-align: center;
   white-space: pre-line;
+}
+
+.ai-text-layer-content img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.ai-text-layer-hint {
+  position: absolute;
+  right: 8px;
+  bottom: 6px;
+  padding: 3px 6px;
+  background: rgba(11, 11, 15, 0.62);
+  color: rgba(255, 255, 255, 0.86);
+  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
+  font-size: 10px;
+  line-height: 1.2;
+  pointer-events: none;
 }
 
 .ai-text-resize-handle {
@@ -1286,17 +1644,53 @@ a {
   cursor: nwse-resize;
 }
 
+.ai-side-sticker-layer {
+  position: absolute;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px dashed rgba(255, 255, 255, 0.76);
+  background: rgba(11, 11, 15, 0.08);
+  color: #fff;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.ai-side-sticker-layer:active {
+  cursor: grabbing;
+}
+
+.ai-side-sticker-layer img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.ai-side-sticker-layer span {
+  padding: 8px;
+  background: rgba(11, 11, 15, 0.62);
+  font-size: 12px;
+}
+
 .ai-composition-board canvas {
   position: absolute;
   inset: 0;
-  z-index: 3;
+  z-index: 4;
   width: 100%;
   height: 100%;
   cursor: crosshair;
   touch-action: none;
 }
 
+.ai-composition-board:not(.is-fade-mode) canvas {
+  pointer-events: none;
+}
+
 .ai-export-panel {
+  position: relative;
   grid-column: 1 / -1;
   padding: 22px;
   border-top: 1px solid rgba(11, 11, 15, 0.16);
@@ -1340,6 +1734,10 @@ a {
 
 .ai-export-actions .ai-workflow-button:first-child {
   flex: 1 1 280px;
+}
+
+.ai-generation-loader--panel {
+  inset: 22px;
 }
 
 .ai-status-line {
@@ -1812,49 +2210,45 @@ a {
   fill: #fff;
 }
 
-.mind-map-node .mind-map-ai-button-border {
-  fill: #fff;
-  stroke: url(#task-ai-button-gradient);
-  stroke-width: 2;
-  filter: drop-shadow(0 7px 12px rgba(124, 58, 237, 0.18));
-}
-
-.mind-map-ai-button {
-  position: relative;
-  width: 80px;
-  min-height: 26px;
-  padding: 4px 7px;
-  border: 0;
-  border-radius: 5px;
-  background: transparent;
+.task-map-demo .mind-map-ai-button {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 84px;
+  height: 28px;
+  min-height: 0;
+  padding: 0 8px;
+  border: 1.5px solid transparent;
+  border-radius: 6px;
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    linear-gradient(135deg, #4f8cff 0%, #7c3aed 52%, #d946ef 100%) border-box;
   box-shadow: none;
   color: #3f2f8f;
   font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
   font-size: 11px;
   font-weight: 600;
+  line-height: 1;
   cursor: pointer;
+  filter: drop-shadow(0 7px 12px rgba(124, 58, 237, 0.16));
   transition:
     background 0.18s ease,
-    box-shadow 0.18s ease,
+    filter 0.18s ease,
     color 0.18s ease,
     transform 0.18s ease;
 }
 
-.mind-map-ai-button::before {
-  content: "";
-  position: absolute;
-  inset: -2px;
-  z-index: -1;
-  border-radius: 7px;
-  background: linear-gradient(135deg, #4f8cff 0%, #7c3aed 52%, #d946ef 100%);
-}
-
-.mind-map-ai-button:hover {
-  background: linear-gradient(135deg, #4f8cff 0%, #7c3aed 52%, #d946ef 100%);
-  box-shadow:
-    0 0 0 1px rgba(124, 58, 237, 0.12),
-    0 10px 22px rgba(124, 58, 237, 0.24);
-  color: #fff;
+.task-map-demo .mind-map-ai-button:hover,
+.task-map-demo .mind-map-ai-button:focus-visible {
+  border-color: transparent;
+  background:
+    linear-gradient(#f7f4ff, #f7f4ff) padding-box,
+    linear-gradient(135deg, #4f8cff 0%, #7c3aed 52%, #d946ef 100%) border-box;
+  box-shadow: none;
+  color: #312178;
+  filter: drop-shadow(0 8px 14px rgba(124, 58, 237, 0.2));
+  outline: 0;
   transform: translateY(-1px);
 }
 

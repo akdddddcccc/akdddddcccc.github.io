@@ -1015,13 +1015,6 @@ render();
           <div class="mind-map-canvas">
             <p>{{ labels.canvasHint }}</p>
             <svg :viewBox="mindMapViewBox" role="img" aria-label="Mind map canvas" @mouseup="finishMindDrag()" @mouseleave="cancelMindDrag">
-              <defs>
-                <linearGradient id="task-ai-button-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stop-color="#4f8cff" />
-                  <stop offset="52%" stop-color="#7c3aed" />
-                  <stop offset="100%" stop-color="#d946ef" />
-                </linearGradient>
-              </defs>
               <path
                 v-for="link in mindMapLinks"
                 :key="link.key"
@@ -1044,16 +1037,6 @@ render();
               >
                 <rect :width="node.width" :height="node.height" />
                 <text x="12" y="24">{{ shortTitle(node.task.title) }}</text>
-                <rect
-                  v-if="canShowAiSplit(node.task)"
-                  class="mind-map-ai-button-border"
-                  :x="node.width + 6"
-                  y="2"
-                  width="86"
-                  height="32"
-                  rx="6"
-                  style="fill: #fff; stroke: url(#task-ai-button-gradient); stroke-width: 2;"
-                />
                 <foreignObject v-if="canShowAiSplit(node.task)" :x="node.width + 8" y="4" width="92" height="30">
                   <button type="button" class="mind-map-ai-button" @mousedown.stop @click.stop="generateAiForTask(node.task)">
                     {{ labels.aiSplit }}
