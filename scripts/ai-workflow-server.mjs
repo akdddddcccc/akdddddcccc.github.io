@@ -182,6 +182,59 @@ async function parseOpenAIImageResponse(response) {
   return `data:image/png;base64,${imageBase64}`;
 }
 
+async function imageUrlToDataUrl(imageUrl) {
+  if (!imageUrl || imageUrl.startsWith("data:")) return imageUrl;
+  const response = await fetch(imageUrl);
+  if (!response.ok) {
+    throw new Error(`Generated image URL could not be read: ${response.status}`);
+  }
+  const contentType = response.headers.get("content-type") || "image/png";
+  const buffer = Buffer.from(await response.arrayBuffer());
+  return `data:${contentType};base64,${buffer.toString("base64")}`;
+}
+
+function assertStickerImageNotBlank(dataUrl, kind) {
+  const parsed = dataUrlToBuffer(dataUrl);
+  if (!parsed || parsed.mime !== "image/png") return;
+
+  const { width, height, rgba } = decodePngToRgba(parsed.buffer);
+  const total = width * height;
+  let visible = 0;
+  let meaningful = 0;
+  let channelSpreadTotal = 0;
+
+  for (let pixel = 0; pixel < total; pixel += 1) {
+    const index = pixel * 4;
+    const alpha = rgba[index + 3];
+    if (alpha <= 12) continue;
+    visible += 1;
+    const red = rgba[index];
+    const green = rgba[index + 1];
+    const blue = rgba[index + 2];
+    const max = Math.max(red, green, blue);
+    const min = Math.min(red, green, blue);
+    channelSpreadTotal += max - min;
+    if (min < 238 || max - min > 18) meaningful += 1;
+  }
+
+  const meaningfulRatio = visible ? meaningful / visible : 0;
+  const averageSpread = visible ? channelSpreadTotal / visible : 0;
+  if (visible < total * 0.08 || (meaningfulRatio < 0.006 && averageSpread < 2.2)) {
+    throw new Error(`${stickerSpecs[kind]?.zhName || kind} returned a near-blank white image from the image gateway`);
+  }
+}
+
+async function requestStickerImage(kind, prompt, referenceImage) {
+  const image = await requestOpenAIImage({
+    prompt,
+    size: stickerSpecs[kind].size,
+    referenceImage
+  });
+  const dataUrl = await imageUrlToDataUrl(image);
+  assertStickerImageNotBlank(dataUrl, kind);
+  return dataUrl;
+}
+
 function fallbackSticker(kind, userPrompt) {
   const spec = stickerSpecs[kind];
   const accent = kind === "top" ? "#243f32" : kind === "side" ? "#6d7568" : "#40573e";
@@ -510,11 +563,7 @@ async function handleStickerBackgrounds(body) {
   if (GENERATION_MODE === "parallel") {
     const settled = await Promise.allSettled(kinds.map(async (kind) => [
       kind,
-      await requestOpenAIImage({
-        prompt: prompts[kind],
-        size: stickerSpecs[kind].size,
-        referenceImage: body.referenceImage
-      })
+      await requestStickerImage(kind, prompts[kind], body.referenceImage)
     ]));
 
     settled.forEach((result, index) => {
@@ -529,11 +578,7 @@ async function handleStickerBackgrounds(body) {
   } else {
     for (const kind of kinds) {
       try {
-        results[kind] = await requestOpenAIImage({
-          prompt: prompts[kind],
-          size: stickerSpecs[kind].size,
-          referenceImage: body.referenceImage
-        });
+        results[kind] = await requestStickerImage(kind, prompts[kind], body.referenceImage);
       } catch (error) {
         errors[kind] = error.message || "Image generation failed";
         results[kind] = fallbackSticker(kind, body.promptText);
