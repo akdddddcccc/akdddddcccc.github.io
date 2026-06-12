@@ -568,10 +568,17 @@ export default {
         const errorText = data.errors && Object.keys(data.errors).length
           ? Object.entries(data.errors).map(([key, value]) => `${key}: ${value}`).join(" / ")
           : "";
+        const warningText = data.warnings && Object.keys(data.warnings).length
+          ? Object.values(data.warnings).join(" / ")
+          : "";
         this.statusText = data.generated
-          ? (this.lang === "zh" ? "上贴、侧贴、下贴已真实生成" : "Sticker backgrounds generated")
+          ? [
+            this.lang === "zh" ? "上贴、侧贴、下贴已真实生成" : "Sticker backgrounds generated",
+            warningText
+          ].filter(Boolean).join(" / ")
           : [
             data.message,
+            warningText,
             errorText,
             errorText && this.lang === "zh" ? "如果连续出现超时、余额不足、rate limit 或 quota，通常就是网关额度/限流问题。" : ""
           ].filter(Boolean).join(" ");

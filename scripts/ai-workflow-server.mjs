@@ -103,7 +103,7 @@ function dataUrlToBlob(dataUrl) {
   return new Blob([Buffer.from(match[2], "base64")], { type: match[1] });
 }
 
-async function requestOpenAIImage({ prompt, size, referenceImage, referenceImages }) {
+async function requestOpenAIImage({ prompt, size, referenceImage, referenceImages, editSize }) {
   const headers = { Authorization: `Bearer ${API_KEY}` };
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), IMAGE_TIMEOUT_MS);
@@ -118,7 +118,7 @@ async function requestOpenAIImage({ prompt, size, referenceImage, referenceImage
         const body = new FormData();
         body.append("model", IMAGE_MODEL);
         body.append("prompt", prompt);
-        body.append("size", IMAGE_EDIT_SIZE || size);
+        body.append("size", editSize || IMAGE_EDIT_SIZE || size);
         if (IMAGE_EDIT_INCLUDE_EXTRAS) {
           body.append("quality", IMAGE_QUALITY);
           body.append("output_format", "png");
@@ -224,15 +224,65 @@ function assertStickerImageNotBlank(dataUrl, kind) {
   }
 }
 
-async function requestStickerImage(kind, prompt, referenceImage) {
+async function requestCheckedStickerImage(kind, prompt, referenceImage, editSize) {
   const image = await requestOpenAIImage({
     prompt,
     size: stickerSpecs[kind].size,
-    referenceImage
+    referenceImage,
+    editSize
   });
   const dataUrl = await imageUrlToDataUrl(image);
   assertStickerImageNotBlank(dataUrl, kind);
   return dataUrl;
+}
+
+async function requestStickerImage(kind, prompt, referenceImage) {
+  const failedAttempts = [];
+  const tryAttempt = async (label, options = {}) => {
+    try {
+      return await requestCheckedStickerImage(
+        kind,
+        options.prompt || prompt,
+        options.referenceImage ?? referenceImage,
+        options.editSize
+      );
+    } catch (error) {
+      failedAttempts.push(`${label}: ${error.message || "failed"}`);
+      return "";
+    }
+  };
+
+  const directResult = await tryAttempt("reference edit");
+  if (directResult) return { image: directResult, warning: "" };
+
+  const requestedEditSize = IMAGE_EDIT_SIZE || stickerSpecs[kind].size;
+  if (USE_IMAGE_EDITS && referenceImage && requestedEditSize !== "1024x1024") {
+    const squareResult = await tryAttempt("reference edit 1024x1024", { editSize: "1024x1024" });
+    if (squareResult) {
+      return {
+        image: squareResult,
+        warning: `${stickerSpecs[kind].zhName} 的原比例图生图失败，已用 1024x1024 兼容尺寸生成。`
+      };
+    }
+  }
+
+  const generationPrompt = [
+    prompt,
+    "",
+    "The image edit gateway returned blank or unusable output for the reference image. Generate a fresh non-blank sticker background from the written style instructions. The result must contain visible decorative texture, color, and composition; never return a blank or nearly white canvas."
+  ].join("\n");
+  const generatedResult = await tryAttempt("text-only generation retry", {
+    referenceImage: "",
+    prompt: generationPrompt
+  });
+  if (generatedResult) {
+    return {
+      image: generatedResult,
+      warning: `${stickerSpecs[kind].zhName} 的图生图不可用，已改用文字描述生成；参考图相似度会降低。`
+    };
+  }
+
+  throw new Error(failedAttempts.join(" / ") || "Image generation failed");
 }
 
 function fallbackSticker(kind, userPrompt) {
@@ -559,6 +609,7 @@ async function handleStickerBackgrounds(body) {
 
   const results = {};
   const errors = {};
+  const warnings = {};
 
   if (GENERATION_MODE === "parallel") {
     const settled = await Promise.allSettled(kinds.map(async (kind) => [
@@ -569,7 +620,8 @@ async function handleStickerBackgrounds(body) {
     settled.forEach((result, index) => {
       const kind = kinds[index];
       if (result.status === "fulfilled") {
-        results[result.value[0]] = result.value[1];
+        results[result.value[0]] = result.value[1].image;
+        if (result.value[1].warning) warnings[result.value[0]] = result.value[1].warning;
       } else {
         errors[kind] = result.reason?.message || "Image generation failed";
         results[kind] = fallbackSticker(kind, body.promptText);
@@ -578,7 +630,9 @@ async function handleStickerBackgrounds(body) {
   } else {
     for (const kind of kinds) {
       try {
-        results[kind] = await requestStickerImage(kind, prompts[kind], body.referenceImage);
+        const result = await requestStickerImage(kind, prompts[kind], body.referenceImage);
+        results[kind] = result.image;
+        if (result.warning) warnings[kind] = result.warning;
       } catch (error) {
         errors[kind] = error.message || "Image generation failed";
         results[kind] = fallbackSticker(kind, body.promptText);
@@ -602,8 +656,11 @@ async function handleStickerBackgrounds(body) {
     assets: results,
     prompts,
     errors,
+    warnings,
     message: API_KEY
-      ? (Object.keys(errors).length ? "OpenAI 生图失败，已回退成本地草稿。" : "贴片背景已生成。")
+      ? (Object.keys(errors).length
+        ? "OpenAI 生图失败，已回退成本地草稿。"
+        : (Object.keys(warnings).length ? "贴片背景已生成，但部分图片使用了兼容重试路径。" : "贴片背景已生成。"))
       : "未检测到 OPENAI_API_KEY，已返回本地 SVG 草稿和完整 prompt。"
   };
 }
