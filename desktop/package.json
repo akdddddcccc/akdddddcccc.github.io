@@ -5,7 +5,8 @@
   "main": "main.cjs",
   "scripts": {
     "dev": "electron .",
-    "pack": "electron-builder --win portable"
+    "pack": "electron-builder --win portable",
+    "pack:mac": "electron-builder --mac dmg"
   },
   "build": {
     "appId": "cn.muyang.live-room-sticker-workflow",
