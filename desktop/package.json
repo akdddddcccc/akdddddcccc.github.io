@@ -24,6 +24,7 @@
       }
     ],
     "win": {
+      "signAndEditExecutable": false,
       "target": [
         "portable"
       ]
