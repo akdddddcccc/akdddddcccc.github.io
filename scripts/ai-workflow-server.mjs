@@ -21,7 +21,7 @@ const TEXT_LAYER_USE_FONT_REFERENCE = process.env.OPENAI_TEXT_LAYER_USE_FONT_REF
 const TEXT_LAYER_USE_SOURCE_REFERENCE = process.env.OPENAI_TEXT_LAYER_USE_SOURCE_REFERENCE === "1";
 const GENERATION_MODE = process.env.AI_WORKFLOW_GENERATION_MODE || "sequential";
 const WORKFLOW_DOC_PATH = process.env.AI_WORKFLOW_DOC_PATH || new URL("../docs/workflow-source.md", import.meta.url);
-const WORKFLOW_DOC_MAX_CHARS = Number(process.env.AI_WORKFLOW_DOC_MAX_CHARS || 8000);
+const WORKFLOW_DOC_MAX_CHARS = Number(process.env.AI_WORKFLOW_DOC_MAX_CHARS || 12000);
 const WORKFLOW_DOC_CACHE = process.env.AI_WORKFLOW_DOC_CACHE === "1";
 const RUNTIME_BUILD = "2026-06-14-doc-grounded-desktop-v1";
 
@@ -798,7 +798,6 @@ async function handleStickerBackgrounds(body) {
 }
 
 async function handleTextLayer(body) {
-  const workflowDoc = await readWorkflowDoc();
   const styleKey = body.styleKey === "expressive" ? "expressive" : "clean";
   const fontPresetKeys = new Set(["elegant-songti", "expressive-calligraphy", "rounded-cute"]);
   const fontPresetKey = fontPresetKeys.has(body.fontPresetKey) ? body.fontPresetKey : "";
@@ -809,7 +808,6 @@ async function handleTextLayer(body) {
   const sourceTypographyReferenceImage = TEXT_LAYER_USE_SOURCE_REFERENCE ? (body.sourceTypographyReferenceImage || "") : "";
   const referenceImages = [topStickerImage, fontReferenceImage, sourceTypographyReferenceImage].filter(Boolean);
   const prompt = [
-    workflowDocPromptBlock(workflowDoc),
     "Generate a standalone livestream typography asset on a strict pure white #ffffff background.",
     "The final image must be a clean white-background typography design draft, not a transparent image.",
     "Do not composite onto any reference image or recreate any reference background.",
