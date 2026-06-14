@@ -929,12 +929,12 @@ export const projects = [
     "discipline": "vibe-coding",
     "image": "/images/work/ai-mcp-workflow-cover-square.png",
     "title": {
-      "en": "AI MCP Workflow - Reference-to-layer Prototype",
-      "zh": "AI MCP 工作流——参考图到图层素材自动化"
+      "en": "AI直播间贴片生成项目",
+      "zh": "AI直播间贴片生成项目"
     },
     "details": {
       "en": {
-        "title": "AI MCP Workflow - Reference-to-layer Prototype",
+        "title": "AI直播间贴片生成项目",
         "description": "A vibe coding prototype that turns a manual reference-image workflow into an API-ready web flow: extract text layers, generate top/side/bottom sticker backgrounds, draw blend paths, recolor text, and export layered assets for Figma or Photoshop.",
         "hero": "/images/work/ai-mcp-workflow-cover-square.png",
         "images": [],
@@ -950,7 +950,7 @@ export const projects = [
         ]
       },
       "zh": {
-        "title": "AI MCP 工作流——参考图到图层素材自动化",
+        "title": "AI直播间贴片生成项目",
         "description": "一个 vibe coding 交互原型，把参考图、文字图层、上贴/侧贴/下贴背景、手绘路径融合、透明图层导出整理成可接入真实 API 的网页流程。",
         "hero": "/images/work/ai-mcp-workflow-cover-square.png",
         "images": [],
