@@ -28,10 +28,10 @@ export default {
   template: `
     <header class="site-header" :class="{ 'site-header--compact': compact }">
       <a class="phone-logo" :href="'#/' + lang + '/projects/school'" aria-label="Portfolio home">
-        <img src="/images/yang.svg" alt="MY logo mark" />
+        <img src="/images/yang.svg" alt="MUYANG NOBOOK logo mark" />
       </a>
       <a class="logo-mark" :href="'#/' + lang + '/projects/school'" aria-label="Portfolio home">
-        <span>CHEN MUYANG</span>
+        <span>MUYANG × NOBOOK</span>
       </a>
 
       <nav v-if="!compact" class="top-nav" aria-label="Main navigation">
