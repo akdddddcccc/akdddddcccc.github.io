@@ -1,5 +1,5 @@
 ﻿import { createServer } from "node:http";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { deflateSync, inflateSync } from "node:zlib";
 
@@ -9,6 +9,8 @@ const OPENAI_BASE_URL = (process.env.OPENAI_BASE_URL || "https://api.openai.com/
 const OPENAI_PROVIDER_LABEL = process.env.OPENAI_PROVIDER_LABEL || (OPENAI_BASE_URL.includes("api.openai.com") ? "OpenAI official" : "Custom OpenAI-compatible API");
 const IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || "gpt-image-2";
 const IMAGE_QUALITY = process.env.OPENAI_IMAGE_QUALITY || "low";
+const IMAGE_OUTPUT_FORMAT = process.env.OPENAI_IMAGE_OUTPUT_FORMAT || "png";
+const TEXT_LAYER_OUTPUT_FORMAT = process.env.OPENAI_TEXT_LAYER_OUTPUT_FORMAT || "png";
 const USE_IMAGE_EDITS = process.env.OPENAI_IMAGE_USE_EDITS === "1";
 const IMAGE_TIMEOUT_MS = Number(process.env.OPENAI_IMAGE_TIMEOUT_MS || 90000);
 const IMAGE_EDIT_FIELD = process.env.OPENAI_IMAGE_EDIT_FIELD || "image";
@@ -24,6 +26,28 @@ const WORKFLOW_DOC_PATH = process.env.AI_WORKFLOW_DOC_PATH || new URL("../docs/w
 const WORKFLOW_DOC_MAX_CHARS = Number(process.env.AI_WORKFLOW_DOC_MAX_CHARS || 12000);
 const WORKFLOW_DOC_CACHE = process.env.AI_WORKFLOW_DOC_CACHE === "1";
 const RUNTIME_BUILD = "2026-06-14-doc-grounded-desktop-v1";
+const LOCAL_ENV_PATH = process.env.AI_WORKFLOW_ENV_PATH || new URL("../.env.local", import.meta.url);
+
+function openAIKey() {
+  return process.env.OPENAI_API_KEY || API_KEY;
+}
+
+function openAIBaseUrl() {
+  return (process.env.OPENAI_BASE_URL || OPENAI_BASE_URL).replace(/\/+$/, "");
+}
+
+function openAIProviderLabel() {
+  const baseUrl = openAIBaseUrl();
+  return process.env.OPENAI_PROVIDER_LABEL || (baseUrl.includes("api.openai.com") ? "OpenAI official" : "Custom OpenAI-compatible API");
+}
+
+function imageOutputFormat() {
+  return normalizeOutputFormat(process.env.OPENAI_IMAGE_OUTPUT_FORMAT || IMAGE_OUTPUT_FORMAT, "png");
+}
+
+function textLayerOutputFormat() {
+  return normalizeOutputFormat(process.env.OPENAI_TEXT_LAYER_OUTPUT_FORMAT || TEXT_LAYER_OUTPUT_FORMAT, "png");
+}
 
 const stickerSpecs = {
   top: {
@@ -92,6 +116,60 @@ function sendJson(response, statusCode, data) {
   response.end(JSON.stringify(data));
 }
 
+function workflowConfig() {
+  return {
+    ok: true,
+    baseUrl: openAIBaseUrl(),
+    provider: openAIProviderLabel(),
+    hasOpenAIKey: Boolean(openAIKey()),
+    outputFormat: imageOutputFormat(),
+    textLayerOutputFormat: textLayerOutputFormat()
+  };
+}
+
+function normalizeOutputFormat(value, fallback = "png") {
+  const normalized = String(value || "").trim().toLowerCase();
+  return ["png", "jpeg", "webp"].includes(normalized) ? normalized : fallback;
+}
+
+async function saveWorkflowConfig(body = {}) {
+  if (typeof body.apiKey === "string" && body.apiKey.trim()) process.env.OPENAI_API_KEY = body.apiKey.trim();
+  if (typeof body.baseUrl === "string" && body.baseUrl.trim()) {
+    process.env.OPENAI_BASE_URL = body.baseUrl.trim().replace(/\/+$/, "");
+  }
+  if (typeof body.provider === "string" && body.provider.trim()) process.env.OPENAI_PROVIDER_LABEL = body.provider.trim();
+  if (typeof body.outputFormat === "string") process.env.OPENAI_IMAGE_OUTPUT_FORMAT = normalizeOutputFormat(body.outputFormat, IMAGE_OUTPUT_FORMAT);
+  if (typeof body.textLayerOutputFormat === "string") process.env.OPENAI_TEXT_LAYER_OUTPUT_FORMAT = normalizeOutputFormat(body.textLayerOutputFormat, TEXT_LAYER_OUTPUT_FORMAT);
+
+  const lines = [
+    `OPENAI_API_KEY=${process.env.OPENAI_API_KEY || ""}`,
+    `OPENAI_BASE_URL=${openAIBaseUrl()}`,
+    `OPENAI_PROVIDER_LABEL=${openAIProviderLabel()}`,
+    `OPENAI_IMAGE_MODEL=${IMAGE_MODEL}`,
+    `OPENAI_IMAGE_QUALITY=${IMAGE_QUALITY}`,
+    `OPENAI_IMAGE_OUTPUT_FORMAT=${process.env.OPENAI_IMAGE_OUTPUT_FORMAT || IMAGE_OUTPUT_FORMAT}`,
+    `OPENAI_TEXT_LAYER_OUTPUT_FORMAT=${process.env.OPENAI_TEXT_LAYER_OUTPUT_FORMAT || TEXT_LAYER_OUTPUT_FORMAT}`,
+    `OPENAI_IMAGE_USE_EDITS=${USE_IMAGE_EDITS ? "1" : "0"}`,
+    `OPENAI_IMAGE_EDIT_FIELD=${IMAGE_EDIT_FIELD}`,
+    `OPENAI_IMAGE_EDIT_INCLUDE_EXTRAS=${IMAGE_EDIT_INCLUDE_EXTRAS ? "1" : "0"}`,
+    `OPENAI_IMAGE_TIMEOUT_MS=${IMAGE_TIMEOUT_MS}`,
+    `AI_WORKFLOW_GENERATION_MODE=${GENERATION_MODE}`,
+    `OPENAI_TEXT_LAYER_USE_API=${TEXT_LAYER_USE_API ? "1" : "0"}`,
+    `OPENAI_TEXT_LAYER_USE_FONT_REFERENCE=${TEXT_LAYER_USE_FONT_REFERENCE ? "1" : "0"}`,
+    `OPENAI_TEXT_LAYER_USE_SOURCE_REFERENCE=${TEXT_LAYER_USE_SOURCE_REFERENCE ? "1" : "0"}`,
+    `AI_WORKFLOW_DOC_PATH=${process.env.AI_WORKFLOW_DOC_PATH || "docs/workflow-source.md"}`,
+    `AI_WORKFLOW_DOC_MAX_CHARS=${WORKFLOW_DOC_MAX_CHARS}`,
+    `AI_WORKFLOW_DOC_CACHE=${WORKFLOW_DOC_CACHE ? "1" : "0"}`
+  ];
+  await writeFile(LOCAL_ENV_PATH, `${lines.join("\n")}\n`, "utf8");
+  return workflowConfig();
+}
+
+function isLocalRequest(request) {
+  const host = String(request.headers.host || "").split(":")[0];
+  return ["127.0.0.1", "localhost", "::1"].includes(host);
+}
+
 async function readRequestJson(request) {
   const chunks = [];
   for await (const chunk of request) chunks.push(chunk);
@@ -151,8 +229,9 @@ function dataUrlToUploadFile(dataUrl, index) {
   return blob;
 }
 
-async function requestOpenAIImage({ prompt, size, referenceImage, referenceImages, editSize }) {
-  const headers = { Authorization: `Bearer ${API_KEY}` };
+async function requestOpenAIImage({ prompt, size, referenceImage, referenceImages, editSize, outputFormat = imageOutputFormat() }) {
+  const baseUrl = openAIBaseUrl();
+  const headers = { Authorization: `Bearer ${openAIKey()}` };
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), IMAGE_TIMEOUT_MS);
   const inputImages = Array.isArray(referenceImages) && referenceImages.length
@@ -169,12 +248,12 @@ async function requestOpenAIImage({ prompt, size, referenceImage, referenceImage
         body.append("size", editSize || IMAGE_EDIT_SIZE || size);
         if (IMAGE_EDIT_INCLUDE_EXTRAS) {
           body.append("quality", IMAGE_QUALITY);
-          body.append("output_format", "png");
+          body.append("output_format", outputFormat);
         }
         imageFiles.forEach((imageFile, index) => {
           body.append(IMAGE_EDIT_FIELD, imageFile, imageFile.name || `reference-${index + 1}.png`);
         });
-        const response = await fetch(`${OPENAI_BASE_URL}/images/edits`, {
+        const response = await fetch(`${baseUrl}/images/edits`, {
           method: "POST",
           headers,
           body,
@@ -184,7 +263,7 @@ async function requestOpenAIImage({ prompt, size, referenceImage, referenceImage
       }
     }
 
-    const response = await fetch(`${OPENAI_BASE_URL}/images/generations`, {
+    const response = await fetch(`${baseUrl}/images/generations`, {
       method: "POST",
       headers: {
         ...headers,
@@ -195,7 +274,7 @@ async function requestOpenAIImage({ prompt, size, referenceImage, referenceImage
         prompt,
         size,
         quality: IMAGE_QUALITY,
-        output_format: "png"
+        output_format: outputFormat
       }),
       signal: controller.signal
     });
@@ -352,7 +431,8 @@ async function requestCheckedStickerImage(kind, prompt, referenceImage, editSize
     prompt,
     size: stickerSpecs[kind].size,
     referenceImage,
-    editSize
+    editSize,
+    outputFormat: imageOutputFormat()
   });
   const dataUrl = await imageUrlToDataUrl(image);
   assertStickerImageNotBlank(dataUrl, kind);
@@ -711,7 +791,7 @@ async function handleStickerBackgrounds(body) {
   ]));
   const singleKind = kinds.includes(body.kind) ? body.kind : "";
 
-  if (!API_KEY) {
+  if (!openAIKey()) {
     const fallbackKinds = singleKind ? [singleKind] : kinds;
     return {
       ok: true,
@@ -719,7 +799,7 @@ async function handleStickerBackgrounds(body) {
       generated: false,
       model: IMAGE_MODEL,
       quality: IMAGE_QUALITY,
-      baseUrl: OPENAI_BASE_URL,
+      baseUrl: openAIBaseUrl(),
       useImageEdits: USE_IMAGE_EDITS,
       timeoutMs: IMAGE_TIMEOUT_MS,
       imageEditField: IMAGE_EDIT_FIELD,
@@ -780,10 +860,10 @@ async function handleStickerBackgrounds(body) {
   return {
     ok: true,
     openAIRequestOk: Object.keys(errors).length === 0,
-    generated: Boolean(API_KEY) && Object.keys(errors).length === 0,
+    generated: Boolean(openAIKey()) && Object.keys(errors).length === 0,
     model: IMAGE_MODEL,
     quality: IMAGE_QUALITY,
-    baseUrl: OPENAI_BASE_URL,
+    baseUrl: openAIBaseUrl(),
     useImageEdits: USE_IMAGE_EDITS,
     timeoutMs: IMAGE_TIMEOUT_MS,
     imageEditField: IMAGE_EDIT_FIELD,
@@ -796,7 +876,7 @@ async function handleStickerBackgrounds(body) {
     prompts,
     errors,
     warnings,
-    message: API_KEY
+    message: openAIKey()
       ? (Object.keys(errors).length
         ? "OpenAI 生图失败，已回退成本地草稿。"
         : (Object.keys(warnings).length ? "贴片背景已生成，但部分图片使用了兼容重试路径。" : "贴片背景已生成。"))
@@ -829,6 +909,9 @@ async function handleTextLayer(body) {
     sourceTypographyReferenceImage
       ? "An additional source reference is the user's original step-1 reference image. If it contains lettering, extract only broad typography cues such as stroke thickness, terminal shape, weight rhythm, spacing, and title hierarchy. Never copy its actual words, slogans, logo marks, background, scene, palette, decorations, products, people, labels, or composition."
       : "",
+    body.useReferenceTextStyle
+      ? "The user asked to consider text-style cues from the original step-1 reference, but no extra source image is attached for stability. Infer only generic typography qualities that are already visible in the new top sticker and the selected typography route; do not introduce any old palette or scene residue."
+      : "",
     "The top sticker reference always wins for color, material direction, and small surrounding decorative elements.",
     "Palette isolation: the original uploaded source image and any typography reference must never affect lettering color. They may not introduce old colors, previous palettes, background tones, product colors, or scene lighting into the new text layer.",
     "Use only the newly generated top sticker as the palette source. If the top sticker is pale near its fade edge, sample color from its most saturated decorative/highlight areas instead of the faded white transition.",
@@ -860,7 +943,7 @@ async function handleTextLayer(body) {
   const fallbackTransparent = makeTextLayerSvg({ copyText, styleKey });
   const fallbackWhiteDraft = makeTextLayerSvg({ copyText, styleKey, background: "#ffffff" });
 
-  if (!API_KEY || !TEXT_LAYER_USE_API) {
+  if (!openAIKey() || !TEXT_LAYER_USE_API) {
     return {
       ok: true,
       generated: false,
@@ -874,7 +957,7 @@ async function handleTextLayer(body) {
       prompt,
       model: IMAGE_MODEL,
       size: TEXT_LAYER_SIZE,
-      message: !API_KEY
+      message: !openAIKey()
         ? "未检测到 OPENAI_API_KEY，已返回本地 SVG 文字图层草稿。"
         : "文字图层 API 已关闭，已返回本地 SVG 文字图层草稿。"
     };
@@ -887,7 +970,8 @@ async function handleTextLayer(body) {
       whiteDraft = await requestOpenAIImage({
         prompt,
         size: TEXT_LAYER_SIZE,
-        referenceImages
+        referenceImages,
+        outputFormat: textLayerOutputFormat()
       });
     } catch (error) {
       if (referenceImages.length < 2 || !topStickerImage) throw error;
@@ -899,7 +983,8 @@ async function handleTextLayer(body) {
           "The optional typography reference images could not be sent by the image gateway in this retry. Ignore them and rely on the top sticker plus the selected typography route."
         ].join("\n"),
         size: TEXT_LAYER_SIZE,
-        referenceImage: topStickerImage
+        referenceImage: topStickerImage,
+        outputFormat: textLayerOutputFormat()
       });
     }
     let transparent = fallbackTransparent;
@@ -959,11 +1044,12 @@ async function workflowStatus() {
   const workflowDoc = await readWorkflowDoc();
   return {
     ok: true,
-    hasOpenAIKey: Boolean(API_KEY),
-    provider: OPENAI_PROVIDER_LABEL,
+    hasOpenAIKey: Boolean(openAIKey()),
+    provider: openAIProviderLabel(),
     model: IMAGE_MODEL,
     quality: IMAGE_QUALITY,
-    baseUrl: OPENAI_BASE_URL,
+    outputFormat: imageOutputFormat(),
+    baseUrl: openAIBaseUrl(),
     useImageEdits: USE_IMAGE_EDITS,
     timeoutMs: IMAGE_TIMEOUT_MS,
     imageEditField: IMAGE_EDIT_FIELD,
@@ -971,6 +1057,7 @@ async function workflowStatus() {
     imageEditFallbackSize: IMAGE_EDIT_FALLBACK_SIZE || "off",
     imageEditIncludeExtras: IMAGE_EDIT_INCLUDE_EXTRAS,
     textLayerSize: TEXT_LAYER_SIZE,
+    textLayerOutputFormat: textLayerOutputFormat(),
     textLayerUseApi: TEXT_LAYER_USE_API,
     textLayerUseFontReference: TEXT_LAYER_USE_FONT_REFERENCE,
     textLayerUseSourceReference: TEXT_LAYER_USE_SOURCE_REFERENCE,
@@ -995,6 +1082,10 @@ async function route(request, response) {
     sendJson(response, 200, await workflowStatus());
     return;
   }
+  if (request.method === "GET" && url.pathname === "/api/ai-workflow/config") {
+    sendJson(response, 200, workflowConfig());
+    return;
+  }
 
   if (request.method !== "POST") {
     sendJson(response, 404, { ok: false, message: "Not found" });
@@ -1011,6 +1102,14 @@ async function route(request, response) {
       sendJson(response, 200, await handleTextLayer(body));
       return;
     }
+    if (url.pathname === "/api/ai-workflow/config") {
+      if (!isLocalRequest(request)) {
+        sendJson(response, 403, { ok: false, message: "Local configuration is only available on this computer." });
+        return;
+      }
+      sendJson(response, 200, await saveWorkflowConfig(body));
+      return;
+    }
     sendJson(response, 404, { ok: false, message: "Not found" });
   } catch (error) {
     sendJson(response, 500, {
@@ -1025,12 +1124,13 @@ export { handleStickerBackgrounds, handleTextLayer, route, workflowStatus };
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   createServer(route).listen(PORT, "127.0.0.1", () => {
     console.log(`AI workflow local server listening on http://127.0.0.1:${PORT}`);
-    console.log(`OpenAI base URL: ${OPENAI_BASE_URL}`);
+    console.log(`OpenAI base URL: ${openAIBaseUrl()}`);
     console.log(`Image model: ${IMAGE_MODEL}`);
     console.log(`Image timeout: ${IMAGE_TIMEOUT_MS}ms`);
     console.log(`Image edit field: ${IMAGE_EDIT_FIELD}`);
     console.log(`Generation mode: ${GENERATION_MODE}`);
-    console.log(`OpenAI key: ${API_KEY ? "configured" : "missing, local SVG fallback enabled"}`);
+    console.log(`OpenAI key: ${openAIKey() ? "configured" : "missing, local SVG fallback enabled"}`);
   });
 }
+
 
