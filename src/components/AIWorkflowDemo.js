@@ -20,12 +20,23 @@
       loadingTimer: null,
       loadingWordIndex: 0,
       apiBase: typeof window !== "undefined" && ["127.0.0.1", "localhost"].includes(window.location.hostname)
-        ? "http://127.0.0.1:8787"
+        ? (window.location.port === "48973" ? "" : "http://127.0.0.1:8787")
         : "",
+      localConfigAvailable: typeof window !== "undefined" && ["127.0.0.1", "localhost"].includes(window.location.hostname),
       apiStatus: {
         checked: false,
         online: false,
         hasOpenAIKey: false,
+        message: ""
+      },
+      workflowConfig: {
+        baseUrl: "https://api.ofox.io/v1",
+        provider: "Company API",
+        apiKey: "",
+        hasOpenAIKey: false,
+        outputFormat: "jpeg",
+        textLayerOutputFormat: "png",
+        saving: false,
         message: ""
       },
       referenceUrl: "",
@@ -354,6 +365,7 @@
     this.resizeCompositionForDisplay();
     this.centerTextLayer();
     this.checkWorkflowServer();
+    this.loadWorkflowConfig();
     window.addEventListener("resize", this.resizeCompositionForDisplay);
     window.addEventListener("pointermove", this.moveOverlayInteraction);
     window.addEventListener("pointerup", this.endOverlayInteraction);
@@ -392,6 +404,56 @@
           message: this.labels.serviceOffline
         };
         this.statusText = this.labels.serviceOffline;
+      }
+    },
+    async loadWorkflowConfig() {
+      try {
+        const response = await fetch(`${this.apiBase}/api/ai-workflow/config`);
+        const data = await response.json();
+        if (!response.ok || !data.ok) return;
+        this.workflowConfig = {
+          ...this.workflowConfig,
+          baseUrl: data.baseUrl || this.workflowConfig.baseUrl,
+          provider: data.provider || this.workflowConfig.provider,
+          hasOpenAIKey: Boolean(data.hasOpenAIKey),
+          outputFormat: data.outputFormat || this.workflowConfig.outputFormat,
+          textLayerOutputFormat: data.textLayerOutputFormat || this.workflowConfig.textLayerOutputFormat
+        };
+      } catch {
+        this.workflowConfig.message = this.lang === "zh" ? "本地配置服务未连接" : "Local config service is offline";
+      }
+    },
+    async saveWorkflowConfig() {
+      this.workflowConfig.saving = true;
+      try {
+        const response = await fetch(`${this.apiBase}/api/ai-workflow/config`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            baseUrl: this.workflowConfig.baseUrl,
+            provider: this.workflowConfig.provider,
+            apiKey: this.workflowConfig.apiKey,
+            outputFormat: this.workflowConfig.outputFormat,
+            textLayerOutputFormat: this.workflowConfig.textLayerOutputFormat
+          })
+        });
+        const data = await response.json();
+        if (!response.ok || !data.ok) throw new Error(data.message || "Config save failed");
+        this.workflowConfig = {
+          ...this.workflowConfig,
+          apiKey: "",
+          hasOpenAIKey: Boolean(data.hasOpenAIKey),
+          outputFormat: data.outputFormat || this.workflowConfig.outputFormat,
+          textLayerOutputFormat: data.textLayerOutputFormat || this.workflowConfig.textLayerOutputFormat,
+          message: this.lang === "zh" ? "配置已保存，本次会话立即生效" : "Settings saved for this session"
+        };
+        await this.checkWorkflowServer();
+      } catch (error) {
+        this.workflowConfig.message = this.lang === "zh"
+          ? `配置保存失败：${error.message}`
+          : `Config save failed: ${error.message}`;
+      } finally {
+        this.workflowConfig.saving = false;
       }
     },
     async loadReference(event) {
@@ -678,7 +740,8 @@
           topStickerImage: this.stickerOutputs.top,
           referenceImage: this.stickerOutputs.top,
           fontReferenceImage,
-          sourceTypographyReferenceImage: this.extractTextStyleFromReference ? this.referenceDataUrl : ""
+          sourceTypographyReferenceImage: "",
+          useReferenceTextStyle: this.extractTextStyleFromReference
         });
         this.textLayerDraftOutput = data.assets?.whiteDraft || "";
         this.textLayerOutput = data.assets?.transparent || "";
@@ -1343,6 +1406,36 @@
         <p class="ai-service-status" :class="{ online: apiStatus.online, keyless: apiStatus.online && !apiStatus.hasOpenAIKey }">
           {{ apiStatus.message || statusText }}
         </p>
+        <div v-if="localConfigAvailable" class="ai-local-config">
+          <label>
+            <span>{{ lang === 'zh' ? '接口地址' : 'API URL' }}</span>
+            <input v-model="workflowConfig.baseUrl" type="text" autocomplete="off" />
+          </label>
+          <label>
+            <span>{{ lang === 'zh' ? 'API Key' : 'API Key' }}</span>
+            <input v-model="workflowConfig.apiKey" type="password" autocomplete="off" :placeholder="workflowConfig.hasOpenAIKey ? (lang === 'zh' ? '已保存，留空不修改' : 'Saved; leave blank to keep') : ''" />
+          </label>
+          <label>
+            <span>{{ lang === 'zh' ? '贴片格式' : 'Sticker format' }}</span>
+            <select v-model="workflowConfig.outputFormat">
+              <option value="jpeg">jpeg</option>
+              <option value="png">png</option>
+              <option value="webp">webp</option>
+            </select>
+          </label>
+          <label>
+            <span>{{ lang === 'zh' ? '文字格式' : 'Text format' }}</span>
+            <select v-model="workflowConfig.textLayerOutputFormat">
+              <option value="png">png</option>
+              <option value="jpeg">jpeg</option>
+              <option value="webp">webp</option>
+            </select>
+          </label>
+          <button type="button" @click="saveWorkflowConfig" :disabled="workflowConfig.saving">
+            {{ workflowConfig.saving ? (lang === 'zh' ? '保存中' : 'Saving') : (lang === 'zh' ? '保存本机配置' : 'Save settings') }}
+          </button>
+          <small>{{ workflowConfig.message }}</small>
+        </div>
       </div>
 
       <div class="ai-workflow-tabs" aria-label="Workflow steps">
