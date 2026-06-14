@@ -101,8 +101,12 @@ async function readRequestJson(request) {
 
 function buildStickerPrompt(kind, userPrompt, workflowDoc) {
   const spec = stickerSpecs[kind];
+  const seriesStyleLock = [
+    "Series consistency lock: top, side, and bottom must feel like one coordinated sticker set from the same reference image. Keep the same palette family, material language, lighting temperature, ornament vocabulary, line quality, and softness level across all three outputs.",
+    "Role variation only: change placement and crop for top/side/bottom, but do not invent a different visual genre for one piece. The three pieces should look like siblings, not separate campaigns."
+  ].join("\n");
   const fadeZone = kind === "top"
-    ? "For the top sticker, only the lower 20-30% may fade toward white for compositing. The upper and side decoration areas must keep the reference image's strongest saturation, contrast, texture depth, and highlight intensity."
+    ? "For the top sticker, only the lower 20-30% may fade toward white for compositing. The upper and side decoration areas must keep the reference image's strongest saturation, contrast, texture depth, and highlight intensity. Match the current reference image's dimensionality: if it is flat 2D, keep it flat and graphic; if it is 3D-rendered, keep the same 3D/rendered language."
     : kind === "bottom"
       ? "For the bottom sticker, only the upper 20-30% may fade toward white for compositing. The lower decoration area must keep the reference image's strongest saturation, contrast, texture depth, and highlight intensity."
       : "For the side sticker, only the inner edge may become airy and pale for compositing. The outer decorative edge must keep the reference image's strongest saturation, contrast, texture depth, and highlight intensity.";
@@ -112,7 +116,10 @@ function buildStickerPrompt(kind, userPrompt, workflowDoc) {
     "",
     spec.instruction,
     "",
+    seriesStyleLock,
+    "",
     "Color fidelity lock: do not wash out the whole image. Preserve the reference image's vivid accent colors, material richness, local dark-light contrast, and decorative density in the active ornament area.",
+    "Dimensionality lock: match only the current reference image's dimensional style. Do not inherit 3D, bevel, plastic, metallic, volumetric, cinematic, or flat poster traits from any previous generation. If the current reference is flat, stay flat; if the current reference is 3D-rendered, keep a coherent 3D-rendered style across all three stickers.",
     "Fade control: the pale/white transition is only a compositing edge treatment, not a global color grade. Avoid pastelizing, desaturating, flattening, or turning the entire sticker into a single pale color.",
     fadeZone,
     "",
