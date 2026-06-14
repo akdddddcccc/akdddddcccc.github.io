@@ -1,4 +1,4 @@
-import { createServer } from "node:http";
+﻿import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { deflateSync, inflateSync } from "node:zlib";
@@ -6,6 +6,7 @@ import { deflateSync, inflateSync } from "node:zlib";
 const PORT = Number(process.env.AI_WORKFLOW_PORT || 8787);
 const API_KEY = process.env.OPENAI_API_KEY || "";
 const OPENAI_BASE_URL = (process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/+$/, "");
+const OPENAI_PROVIDER_LABEL = process.env.OPENAI_PROVIDER_LABEL || (OPENAI_BASE_URL.includes("api.openai.com") ? "OpenAI official" : "Custom OpenAI-compatible API");
 const IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || "gpt-image-2";
 const IMAGE_QUALITY = process.env.OPENAI_IMAGE_QUALITY || "low";
 const USE_IMAGE_EDITS = process.env.OPENAI_IMAGE_USE_EDITS === "1";
@@ -16,6 +17,8 @@ const IMAGE_EDIT_FALLBACK_SIZE = process.env.OPENAI_IMAGE_EDIT_FALLBACK_SIZE || 
 const IMAGE_EDIT_INCLUDE_EXTRAS = process.env.OPENAI_IMAGE_EDIT_INCLUDE_EXTRAS === "1";
 const TEXT_LAYER_SIZE = process.env.OPENAI_TEXT_LAYER_SIZE || "1536x1024";
 const TEXT_LAYER_USE_API = process.env.OPENAI_TEXT_LAYER_USE_API !== "0";
+const TEXT_LAYER_USE_FONT_REFERENCE = process.env.OPENAI_TEXT_LAYER_USE_FONT_REFERENCE !== "0";
+const TEXT_LAYER_USE_SOURCE_REFERENCE = process.env.OPENAI_TEXT_LAYER_USE_SOURCE_REFERENCE === "1";
 const GENERATION_MODE = process.env.AI_WORKFLOW_GENERATION_MODE || "sequential";
 const WORKFLOW_DOC_PATH = "/Users/eeo/Documents/直播间贴片自动化/直播间贴片生图工作流_主文档.md";
 const RUNTIME_BUILD = "2026-06-12-single-sticker-resilient-v1";
@@ -86,10 +89,19 @@ async function readRequestJson(request) {
 
 function buildStickerPrompt(kind, userPrompt) {
   const spec = stickerSpecs[kind];
+  const fadeZone = kind === "top"
+    ? "For the top sticker, only the lower 20-30% may fade toward white for compositing. The upper and side decoration areas must keep the reference image's strongest saturation, contrast, texture depth, and highlight intensity."
+    : kind === "bottom"
+      ? "For the bottom sticker, only the upper 20-30% may fade toward white for compositing. The lower decoration area must keep the reference image's strongest saturation, contrast, texture depth, and highlight intensity."
+      : "For the side sticker, only the inner edge may become airy and pale for compositing. The outer decorative edge must keep the reference image's strongest saturation, contrast, texture depth, and highlight intensity.";
   return [
     basePrompt,
     "",
     spec.instruction,
+    "",
+    "Color fidelity lock: do not wash out the whole image. Preserve the reference image's vivid accent colors, material richness, local dark-light contrast, and decorative density in the active ornament area.",
+    "Fade control: the pale/white transition is only a compositing edge treatment, not a global color grade. Avoid pastelizing, desaturating, flattening, or turning the entire sticker into a single pale color.",
+    fadeZone,
     "",
     userPrompt ? `本轮用户补充要求：${userPrompt}` : "",
     "",
@@ -778,8 +790,8 @@ async function handleTextLayer(body) {
   const fontReferenceSource = body.fontReferenceSource === "preset" ? "preset" : "upload";
   const copyText = String(body.copyText || "").replace(/^例如：\n?|^Example:\n?/i, "").replace(/[“”"]/g, "").trim() || "NOBOOK · 618 狂欢季\n重走真理诞生路";
   const topStickerImage = body.topStickerImage || body.referenceImage || "";
-  const fontReferenceImage = body.fontReferenceImage || "";
-  const sourceTypographyReferenceImage = body.sourceTypographyReferenceImage || "";
+  const fontReferenceImage = TEXT_LAYER_USE_FONT_REFERENCE ? (body.fontReferenceImage || "") : "";
+  const sourceTypographyReferenceImage = TEXT_LAYER_USE_SOURCE_REFERENCE ? (body.sourceTypographyReferenceImage || "") : "";
   const referenceImages = [topStickerImage, fontReferenceImage, sourceTypographyReferenceImage].filter(Boolean);
   const prompt = [
     "Generate a standalone livestream typography asset on a strict pure white #ffffff background.",
@@ -797,6 +809,8 @@ async function handleTextLayer(body) {
       ? "An additional source reference is the user's original step-1 reference image. If it contains lettering, extract only broad typography cues such as stroke thickness, terminal shape, weight rhythm, spacing, and title hierarchy. Never copy its actual words, slogans, logo marks, background, scene, palette, decorations, products, people, labels, or composition."
       : "",
     "The top sticker reference always wins for color, material direction, and small surrounding decorative elements.",
+    "Palette isolation: the original uploaded source image and any typography reference must never affect lettering color. They may not introduce old colors, previous palettes, background tones, product colors, or scene lighting into the new text layer.",
+    "Use only the newly generated top sticker as the palette source. If the top sticker is pale near its fade edge, sample color from its most saturated decorative/highlight areas instead of the faded white transition.",
     "Color lock: choose lettering fill, outline, shadow, highlights, edge effects, and small accent strokes only from Reference image 1/top sticker or from neutral contrast needed for readability. Never borrow the color palette from a font reference or typography preset.",
     "Letterform lock: the selected typography route controls silhouette, stroke structure, serif/brush/rounded character, and spacing. The top sticker reference must not collapse different typography routes into the same font style.",
     "The optional font reference never decides the background, global color, large ornaments, or non-text visual content.",
@@ -925,6 +939,7 @@ async function workflowStatus() {
   return {
     ok: true,
     hasOpenAIKey: Boolean(API_KEY),
+    provider: OPENAI_PROVIDER_LABEL,
     model: IMAGE_MODEL,
     quality: IMAGE_QUALITY,
     baseUrl: OPENAI_BASE_URL,
@@ -936,6 +951,8 @@ async function workflowStatus() {
     imageEditIncludeExtras: IMAGE_EDIT_INCLUDE_EXTRAS,
     textLayerSize: TEXT_LAYER_SIZE,
     textLayerUseApi: TEXT_LAYER_USE_API,
+    textLayerUseFontReference: TEXT_LAYER_USE_FONT_REFERENCE,
+    textLayerUseSourceReference: TEXT_LAYER_USE_SOURCE_REFERENCE,
     generationMode: GENERATION_MODE,
     runtimeBuild: RUNTIME_BUILD,
     workflowDocPath: WORKFLOW_DOC_PATH,
@@ -980,7 +997,7 @@ async function route(request, response) {
   }
 }
 
-export { handleStickerBackgrounds, handleTextLayer, workflowStatus };
+export { handleStickerBackgrounds, handleTextLayer, route, workflowStatus };
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   createServer(route).listen(PORT, "127.0.0.1", () => {
@@ -993,3 +1010,4 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.log(`OpenAI key: ${API_KEY ? "configured" : "missing, local SVG fallback enabled"}`);
   });
 }
+
