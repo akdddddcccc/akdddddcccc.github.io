@@ -20,8 +20,10 @@ const TEXT_LAYER_USE_API = process.env.OPENAI_TEXT_LAYER_USE_API !== "0";
 const TEXT_LAYER_USE_FONT_REFERENCE = process.env.OPENAI_TEXT_LAYER_USE_FONT_REFERENCE !== "0";
 const TEXT_LAYER_USE_SOURCE_REFERENCE = process.env.OPENAI_TEXT_LAYER_USE_SOURCE_REFERENCE === "1";
 const GENERATION_MODE = process.env.AI_WORKFLOW_GENERATION_MODE || "sequential";
-const WORKFLOW_DOC_PATH = "/Users/eeo/Documents/直播间贴片自动化/直播间贴片生图工作流_主文档.md";
-const RUNTIME_BUILD = "2026-06-12-single-sticker-resilient-v1";
+const WORKFLOW_DOC_PATH = process.env.AI_WORKFLOW_DOC_PATH || new URL("../docs/workflow-source.md", import.meta.url);
+const WORKFLOW_DOC_MAX_CHARS = Number(process.env.AI_WORKFLOW_DOC_MAX_CHARS || 8000);
+const WORKFLOW_DOC_CACHE = process.env.AI_WORKFLOW_DOC_CACHE === "1";
+const RUNTIME_BUILD = "2026-06-14-doc-grounded-desktop-v1";
 
 const stickerSpecs = {
   top: {
@@ -61,13 +63,23 @@ const negativePrompt = `禁止生成：文字、logo、二维码、人物、具�
 let workflowDocCache = null;
 
 async function readWorkflowDoc() {
-  if (workflowDocCache !== null) return workflowDocCache;
+  if (WORKFLOW_DOC_CACHE && workflowDocCache !== null) return workflowDocCache;
   try {
     workflowDocCache = await readFile(WORKFLOW_DOC_PATH, "utf8");
   } catch {
     workflowDocCache = "";
   }
   return workflowDocCache;
+}
+
+function workflowDocPromptBlock(workflowDoc) {
+  const trimmed = String(workflowDoc || "").trim();
+  if (!trimmed) return "";
+  return [
+    "Original workflow document, use as the highest-priority production brief:",
+    trimmed.slice(0, WORKFLOW_DOC_MAX_CHARS),
+    "Follow this document's visual goals, sequencing, constraints, and quality criteria unless the current user request explicitly overrides them."
+  ].join("\n");
 }
 
 function sendJson(response, statusCode, data) {
@@ -87,7 +99,7 @@ async function readRequestJson(request) {
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 }
 
-function buildStickerPrompt(kind, userPrompt) {
+function buildStickerPrompt(kind, userPrompt, workflowDoc) {
   const spec = stickerSpecs[kind];
   const fadeZone = kind === "top"
     ? "For the top sticker, only the lower 20-30% may fade toward white for compositing. The upper and side decoration areas must keep the reference image's strongest saturation, contrast, texture depth, and highlight intensity."
@@ -96,6 +108,7 @@ function buildStickerPrompt(kind, userPrompt) {
       : "For the side sticker, only the inner edge may become airy and pale for compositing. The outer decorative edge must keep the reference image's strongest saturation, contrast, texture depth, and highlight intensity.";
   return [
     basePrompt,
+    workflowDocPromptBlock(workflowDoc),
     "",
     spec.instruction,
     "",
@@ -684,9 +697,10 @@ function removeConnectedWhiteBackground(dataUrl) {
 
 async function handleStickerBackgrounds(body) {
   const kinds = ["top", "side", "bottom"];
+  const workflowDoc = await readWorkflowDoc();
   const prompts = Object.fromEntries(kinds.map((kind) => [
     kind,
-    buildStickerPrompt(kind, body.promptText || "")
+    buildStickerPrompt(kind, body.promptText || "", workflowDoc)
   ]));
   const singleKind = kinds.includes(body.kind) ? body.kind : "";
 
@@ -784,6 +798,7 @@ async function handleStickerBackgrounds(body) {
 }
 
 async function handleTextLayer(body) {
+  const workflowDoc = await readWorkflowDoc();
   const styleKey = body.styleKey === "expressive" ? "expressive" : "clean";
   const fontPresetKeys = new Set(["elegant-songti", "expressive-calligraphy", "rounded-cute"]);
   const fontPresetKey = fontPresetKeys.has(body.fontPresetKey) ? body.fontPresetKey : "";
@@ -794,6 +809,7 @@ async function handleTextLayer(body) {
   const sourceTypographyReferenceImage = TEXT_LAYER_USE_SOURCE_REFERENCE ? (body.sourceTypographyReferenceImage || "") : "";
   const referenceImages = [topStickerImage, fontReferenceImage, sourceTypographyReferenceImage].filter(Boolean);
   const prompt = [
+    workflowDocPromptBlock(workflowDoc),
     "Generate a standalone livestream typography asset on a strict pure white #ffffff background.",
     "The final image must be a clean white-background typography design draft, not a transparent image.",
     "Do not composite onto any reference image or recreate any reference background.",
@@ -955,7 +971,9 @@ async function workflowStatus() {
     textLayerUseSourceReference: TEXT_LAYER_USE_SOURCE_REFERENCE,
     generationMode: GENERATION_MODE,
     runtimeBuild: RUNTIME_BUILD,
-    workflowDocPath: WORKFLOW_DOC_PATH,
+    workflowDocPath: String(WORKFLOW_DOC_PATH),
+    workflowDocMaxChars: WORKFLOW_DOC_MAX_CHARS,
+    workflowDocCache: WORKFLOW_DOC_CACHE,
     workflowDocLoaded: Boolean(workflowDoc),
     workflowDocChars: workflowDoc.length
   };
