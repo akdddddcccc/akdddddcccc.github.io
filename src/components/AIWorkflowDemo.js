@@ -1,4 +1,4 @@
-export default {
+﻿export default {
   name: "AIWorkflowDemo",
   props: {
     lang: {
@@ -35,11 +35,7 @@ export default {
       fontReferenceUrl: "",
       fontReferenceDataUrl: "",
       fontPresetReferenceDataUrls: {},
-      fontPresetReferenceUrls: {
-        clean: "/images/work/ai-workflow-font-presets/elegant-songti.png",
-        expressive: "/images/work/ai-workflow-font-presets/expressive-calligraphy.png",
-        rounded: "/images/work/ai-workflow-font-presets/rounded-cute.png"
-      },
+      fontPresetReferenceUrls: {},
       liveRoomUrl: "",
       liveRoomDataUrl: "",
       liveRoomName: this.lang === "zh" ? "等待上传截图" : "Waiting for screenshot",
@@ -48,6 +44,7 @@ export default {
         height: 1920
       },
       activeUploadTarget: "reference",
+      hoverUploadTarget: "",
       activeFadeTarget: "top",
       activeFusionMode: "fade",
       previewPeekTarget: "",
@@ -381,8 +378,9 @@ export default {
           checked: true,
           online: Boolean(data.ok),
           hasOpenAIKey: Boolean(data.hasOpenAIKey),
+          provider: data.provider || "",
           message: data.hasOpenAIKey
-            ? (this.lang === "zh" ? "本地生图服务已连接，可真实调用 API" : "Local generation server connected")
+            ? (this.lang === "zh" ? `生图服务已连接：${data.provider || "API"}` : `Generation API connected: ${data.provider || "API"}`)
             : this.labels.serviceNoKey
         };
         this.statusText = this.apiStatus.message;
@@ -410,11 +408,41 @@ export default {
       const file = imageItem.getAsFile();
       if (!file) return;
       event.preventDefault();
-      await this.setImageForTarget(this.activeUploadTarget || "reference", file, this.lang === "zh" ? "剪贴板图片" : "Clipboard image");
+      const target = this.hoverUploadTarget || this.activeUploadTarget || this.uploadTargetFromViewport() || "reference";
+      await this.setImageForTarget(target, file, this.lang === "zh" ? "剪贴板图片" : "Clipboard image");
     },
     setUploadTarget(target) {
       this.activeUploadTarget = target;
       if (target === "font") this.selectedFontStyle = "reference";
+    },
+    setHoverUploadTarget(target) {
+      this.hoverUploadTarget = target;
+      this.setUploadTarget(target);
+    },
+    clearHoverUploadTarget(target) {
+      if (this.hoverUploadTarget === target) this.hoverUploadTarget = "";
+    },
+    uploadTargetFromViewport() {
+      const candidates = [
+        ["liveRoom", "aiWorkflowLiveRoom"],
+        ["font", "aiWorkflowFontReference"],
+        ["reference", "aiWorkflowReference"]
+      ];
+      const viewportCenter = window.innerHeight / 2;
+      let bestTarget = "";
+      let bestDistance = Infinity;
+      for (const [target, id] of candidates) {
+        const input = document.getElementById(id);
+        const box = input?.closest(".ai-workflow-upload")?.getBoundingClientRect();
+        if (!box || box.bottom < 0 || box.top > window.innerHeight) continue;
+        const center = box.top + box.height / 2;
+        const distance = Math.abs(center - viewportCenter);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          bestTarget = target;
+        }
+      }
+      return bestTarget;
     },
     async setImageForTarget(target, file, fallbackName = "") {
       if (target === "font") {
@@ -1340,6 +1368,8 @@ export default {
               tabindex="0"
               @focus="setUploadTarget('reference')"
               @pointerdown="setUploadTarget('reference')"
+              @pointerenter="setHoverUploadTarget('reference')"
+              @pointerleave="clearHoverUploadTarget('reference')"
             >
               <input id="aiWorkflowReference" type="file" accept="image/*" @change="loadReference" />
               <img v-if="referenceUrl" :src="referenceUrl" alt="Reference preview" />
@@ -1426,6 +1456,8 @@ export default {
               tabindex="0"
               @focus="setUploadTarget('font')"
               @pointerdown="setUploadTarget('font')"
+              @pointerenter="setHoverUploadTarget('font')"
+              @pointerleave="clearHoverUploadTarget('font')"
             >
               <input id="aiWorkflowFontReference" type="file" accept="image/*" @change="loadFontReference" />
               <img v-if="fontReferenceUrl" :src="fontReferenceUrl" alt="Font reference preview" />
@@ -1513,6 +1545,8 @@ export default {
               tabindex="0"
               @focus="setUploadTarget('liveRoom')"
               @pointerdown="setUploadTarget('liveRoom')"
+              @pointerenter="setHoverUploadTarget('liveRoom')"
+              @pointerleave="clearHoverUploadTarget('liveRoom')"
             >
               <input id="aiWorkflowLiveRoom" type="file" accept="image/*" @change="loadLiveRoom" />
               <img v-if="liveRoomUrl" :src="liveRoomUrl" alt="Live-room upload preview" />
@@ -1660,3 +1694,4 @@ export default {
     </section>
   `
 };
+
