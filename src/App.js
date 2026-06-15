@@ -57,6 +57,7 @@ export default {
       lang,
       page,
       kind,
+      slug,
       project,
       activeSection,
       returnKind,
@@ -73,6 +74,7 @@ export default {
           :active-section="activeSection"
           :return-kind="returnKind"
           :compact="page === 'project'"
+          :project-slug="page === 'project' ? slug : ''"
         />
         <main class="site-content">
           <Transition

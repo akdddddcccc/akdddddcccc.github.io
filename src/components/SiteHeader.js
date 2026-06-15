@@ -18,20 +18,33 @@ export default {
     compact: {
       type: Boolean,
       default: false
+    },
+    projectSlug: {
+      type: String,
+      default: ""
     }
   },
   computed: {
     labels() {
       return content.nav[this.lang];
+    },
+    isNobookWorkflow() {
+      return this.projectSlug === "ai-mcp-workflow";
+    },
+    brandLabel() {
+      return this.isNobookWorkflow ? "MUYANG × NOBOOK" : "CHEN MUYANG";
+    },
+    logoAlt() {
+      return this.isNobookWorkflow ? "MUYANG NOBOOK logo mark" : "MY logo mark";
     }
   },
   template: `
     <header class="site-header" :class="{ 'site-header--compact': compact }">
       <a class="phone-logo" :href="'#/' + lang + '/projects/school'" aria-label="Portfolio home">
-        <img src="/images/yang.svg" alt="MY logo mark" />
+        <img src="/images/yang.svg" :alt="logoAlt" />
       </a>
       <a class="logo-mark" :href="'#/' + lang + '/projects/school'" aria-label="Portfolio home">
-        <span>CHEN MUYANG</span>
+        <span>{{ brandLabel }}</span>
       </a>
 
       <nav v-if="!compact" class="top-nav" aria-label="Main navigation">
