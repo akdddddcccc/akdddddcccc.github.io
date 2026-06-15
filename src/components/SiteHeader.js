@@ -40,10 +40,10 @@ export default {
   },
   template: `
     <header class="site-header" :class="{ 'site-header--compact': compact }">
-      <a class="phone-logo" :href="'#/'' + lang + '/projects/school'" aria-label="Portfolio home">
+      <a class="phone-logo" :href="'#/' + lang + '/projects/school'" aria-label="Portfolio home">
         <img src="/images/yang.svg" :alt="logoAlt" />
       </a>
-      <a class="logo-mark" :href="'#/'' + lang + '/projects/school'" aria-label="Portfolio home">
+      <a class="logo-mark" :href="'#/' + lang + '/projects/school'" aria-label="Portfolio home">
         <span>{{ brandLabel }}</span>
       </a>
 
