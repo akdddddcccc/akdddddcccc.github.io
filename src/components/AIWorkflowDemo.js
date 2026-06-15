@@ -30,8 +30,8 @@
         message: ""
       },
       workflowConfig: {
-        baseUrl: "https://api.ofox.io/v1",
-        provider: "Company API",
+        baseUrl: "https://api.openai.com/v1",
+        provider: "OpenAI official",
         apiKey: "",
         hasOpenAIKey: false,
         outputFormat: "jpeg",
@@ -74,6 +74,11 @@
         top: "",
         side: "",
         bottom: ""
+      },
+      stickerLoading: {
+        top: false,
+        side: false,
+        bottom: false
       },
       stickerOutputSizes: {
         top: { width: 1536, height: 1024 },
@@ -647,6 +652,10 @@
         return;
       }
       this.runningStep = "sticker-bg";
+      const referenceImageForRun = this.referenceDataUrl;
+      this.stickerOutputs = { top: "", side: "", bottom: "" };
+      this.stickerPrompts = { top: "", side: "", bottom: "" };
+      this.stickerLoading = { top: false, side: false, bottom: false };
       this.statusText = this.lang === "zh"
         ? "正在按套组顺序生成上贴、侧贴、下贴，每张会单独请求以避免云端超时..."
         : "Generating the sticker set one by one to avoid cloud timeouts...";
@@ -663,6 +672,10 @@
 
         for (let index = 0; index < kinds.length; index += 1) {
           const kind = kinds[index];
+          this.stickerLoading = {
+            ...this.stickerLoading,
+            [kind]: true
+          };
           this.statusText = this.lang === "zh"
             ? `正在生成${kindLabels[kind]}（${index + 1}/3），保持同一参考图和套系规则...`
             : `Generating ${kindLabels[kind]} (${index + 1}/3) with the same reference and series rules...`;
@@ -671,7 +684,7 @@
               lang: this.lang,
               kind,
               promptText: this.promptText,
-              referenceImage: this.referenceDataUrl
+              referenceImage: referenceImageForRun
             });
             this.stickerOutputs = {
               ...this.stickerOutputs,
@@ -690,6 +703,11 @@
             this.statusText = this.lang === "zh"
               ? `${kindLabels[kind]}生成失败，继续尝试下一张...`
               : `${kindLabels[kind]} failed. Continuing with the next sticker...`;
+          } finally {
+            this.stickerLoading = {
+              ...this.stickerLoading,
+              [kind]: false
+            };
           }
         }
 
@@ -719,7 +737,19 @@
           : `Sticker generation failed: ${error.message}`;
       } finally {
         this.runningStep = "";
+        this.stickerLoading = { top: false, side: false, bottom: false };
       }
+    },
+    isStickerPieceLoading(kind) {
+      return this.runningStep === "sticker-bg" && Boolean(this.stickerLoading[kind]);
+    },
+    stickerPieceLoadingText(kind) {
+      const labels = {
+        top: this.lang === "zh" ? "上贴生成中" : "Top generating",
+        side: this.lang === "zh" ? "侧贴生成中" : "Side generating",
+        bottom: this.lang === "zh" ? "下贴生成中" : "Bottom generating"
+      };
+      return labels[kind] || this.loadingMessage;
     },
     async runTextLayer() {
       if (!this.stickerOutputs.top) {
@@ -1489,31 +1519,35 @@
               </div>
             </div>
             <div class="ai-sticker-board">
-              <div class="ai-sticker-piece ai-sticker-piece--top" :style="stickerPieceStyle('top')">
+              <div class="ai-sticker-piece ai-sticker-piece--top" :class="{ 'is-loading': isStickerPieceLoading('top') }" :style="stickerPieceStyle('top')">
                 <img v-if="stickerOutputs.top" :src="stickerOutputs.top" alt="Top sticker background" @load="recordStickerOutputSize('top', $event)" />
                 <span>{{ labels.topBg }}</span>
+                <div v-if="isStickerPieceLoading('top')" class="ai-sticker-piece-loader" role="status" aria-live="polite">
+                  <strong>{{ stickerPieceLoadingText('top') }}</strong>
+                  <i></i>
+                  <small>{{ loadingMessage }}</small>
+                </div>
                 <button v-if="stickerOutputs.top" type="button" class="ai-download-original" @click.stop="downloadGeneratedImage(stickerOutputs.top, stickerDownloadName('top'))">{{ labels.downloadOriginal }}</button>
               </div>
-              <div class="ai-sticker-piece ai-sticker-piece--side" :style="stickerPieceStyle('side')">
+              <div class="ai-sticker-piece ai-sticker-piece--side" :class="{ 'is-loading': isStickerPieceLoading('side') }" :style="stickerPieceStyle('side')">
                 <img v-if="stickerOutputs.side" :src="stickerOutputs.side" alt="Side sticker background" @load="recordStickerOutputSize('side', $event)" />
                 <span>{{ labels.sideBg }}</span>
+                <div v-if="isStickerPieceLoading('side')" class="ai-sticker-piece-loader" role="status" aria-live="polite">
+                  <strong>{{ stickerPieceLoadingText('side') }}</strong>
+                  <i></i>
+                  <small>{{ loadingMessage }}</small>
+                </div>
                 <button v-if="stickerOutputs.side" type="button" class="ai-download-original" @click.stop="downloadGeneratedImage(stickerOutputs.side, stickerDownloadName('side'))">{{ labels.downloadOriginal }}</button>
               </div>
-              <div class="ai-sticker-piece ai-sticker-piece--bottom" :style="stickerPieceStyle('bottom')">
+              <div class="ai-sticker-piece ai-sticker-piece--bottom" :class="{ 'is-loading': isStickerPieceLoading('bottom') }" :style="stickerPieceStyle('bottom')">
                 <img v-if="stickerOutputs.bottom" :src="stickerOutputs.bottom" alt="Bottom sticker background" @load="recordStickerOutputSize('bottom', $event)" />
                 <span>{{ labels.bottomBg }}</span>
+                <div v-if="isStickerPieceLoading('bottom')" class="ai-sticker-piece-loader" role="status" aria-live="polite">
+                  <strong>{{ stickerPieceLoadingText('bottom') }}</strong>
+                  <i></i>
+                  <small>{{ loadingMessage }}</small>
+                </div>
                 <button v-if="stickerOutputs.bottom" type="button" class="ai-download-original" @click.stop="downloadGeneratedImage(stickerOutputs.bottom, stickerDownloadName('bottom'))">{{ labels.downloadOriginal }}</button>
-              </div>
-              <div
-                v-if="runningStep === 'sticker-bg'"
-                class="ai-generation-loader"
-                role="status"
-                aria-live="polite"
-                :aria-label="loadingMessage"
-              >
-                <span :key="loadingMessage" class="figma-loader__message">{{ loadingMessage }}</span>
-                <span class="figma-loader__rule"></span>
-                <small>{{ statusText }}</small>
               </div>
             </div>
           </div>
