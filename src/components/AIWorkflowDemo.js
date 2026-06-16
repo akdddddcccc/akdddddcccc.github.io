@@ -11,6 +11,8 @@ function configuredWorkflowApiBaseRaw() {
   return String(
     params.get("workflowApiBase") ||
     params.get("apiBase") ||
+    window.AI_WORKFLOW_CONFIG?.apiBase ||
+    window.AI_WORKFLOW_API_BASE ||
     import.meta.env?.VITE_WORKFLOW_API_BASE ||
     import.meta.env?.VITE_APP_API_BASE_URL ||
     ""

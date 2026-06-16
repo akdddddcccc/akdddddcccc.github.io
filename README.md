@@ -263,6 +263,28 @@ also accepts that name as a backward-compatible alias. Prefer
 `VITE_WORKFLOW_API_BASE` because this project calls workflow-specific routes,
 not a generic image-generation widget.
 
+For GitHub Pages static branch deployment, editing `.env.local.example` will
+not affect the live site. That file is only a template. Use the runtime config
+file instead:
+
+```text
+workflow-config.js
+```
+
+Example:
+
+```js
+window.AI_WORKFLOW_CONFIG = {
+  apiBase: "https://gpt.278513492.workers.dev"
+};
+```
+
+You can also test a backend without committing config by opening:
+
+```text
+https://cmuyang23333.top/?workflowApiBase=https://gpt.278513492.workers.dev#/zh/project/ai-mcp-workflow
+```
+
 If Cloudflare is proxying `cmuyang23333.top` and a Worker route handles
 `/api/ai-workflow/*` on the same domain, set:
 

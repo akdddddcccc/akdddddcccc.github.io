@@ -13,7 +13,8 @@ const entries = [
   "CNAME",
   "favicon.svg",
   "prism.css",
-  "prism.js"
+  "prism.js",
+  "workflow-config.js"
 ];
 
 await mkdir(outDir, { recursive: true });
