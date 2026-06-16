@@ -685,7 +685,7 @@
               kind,
               promptText: this.promptText,
               referenceImage: referenceImageForRun,
-              seriesReferenceImage: kind === "top" ? "" : this.stickerOutputs.top
+              seriesReferenceImage: kind === "top" ? "" : this.rasterStickerReference(this.stickerOutputs.top)
             });
             this.stickerOutputs = {
               ...this.stickerOutputs,
@@ -743,6 +743,9 @@
     },
     isStickerPieceLoading(kind) {
       return this.runningStep === "sticker-bg" && Boolean(this.stickerLoading[kind]);
+    },
+    rasterStickerReference(source) {
+      return /^data:image\/(?:png|jpeg|webp);base64,/i.test(source || "") ? source : "";
     },
     stickerPieceLoadingText(kind) {
       const labels = {
