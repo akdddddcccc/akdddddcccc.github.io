@@ -1,5 +1,5 @@
 ﻿const LOCAL_WORKFLOW_HOSTS = new Set(["127.0.0.1", "localhost"]);
-const GITHUB_PAGES_STATIC_HOSTS = new Set(["cmuyang23333.top", "www.cmuyang23333.top"]);
+const GITHUB_PAGES_STATIC_HOSTS = new Set(["muyang23333.top", "www.muyang23333.top"]);
 
 function cleanWorkflowApiBase(value) {
   return String(value || "").trim().replace(/\/+$/, "");

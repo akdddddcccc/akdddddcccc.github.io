@@ -1,7 +1,7 @@
 # Chen Muyang Portfolio - Vue Version
 
 This branch is the Vue architecture version of the portfolio site for
-`cmuyang23333.top`.
+`muyang23333.top`.
 
 It is a static Vue 3 single page app. It can be hosted directly by GitHub Pages,
 Tencent Cloud Page One, or any static hosting service.
@@ -245,7 +245,7 @@ Use these repository settings:
 
 ```text
 Pages source: GitHub Actions
-Custom domain: cmuyang23333.top
+Custom domain: muyang23333.top
 ```
 
 The GitHub Pages site is static. It cannot run `scripts/ai-workflow-server.mjs`
@@ -282,10 +282,10 @@ window.AI_WORKFLOW_CONFIG = {
 You can also test a backend without committing config by opening:
 
 ```text
-https://cmuyang23333.top/?workflowApiBase=https://gpt.278513492.workers.dev#/zh/project/ai-mcp-workflow
+https://muyang23333.top/?workflowApiBase=https://gpt.278513492.workers.dev#/zh/project/ai-mcp-workflow
 ```
 
-If Cloudflare is proxying `cmuyang23333.top` and a Worker route handles
+If Cloudflare is proxying `muyang23333.top` and a Worker route handles
 `/api/ai-workflow/*` on the same domain, set:
 
 ```text
@@ -301,7 +301,7 @@ POST /api/ai-workflow/sticker-backgrounds
 POST /api/ai-workflow/text-layer
 ```
 
-If `VITE_WORKFLOW_API_BASE` is not set, the static page at `cmuyang23333.top`
+If `VITE_WORKFLOW_API_BASE` is not set, the static page at `muyang23333.top`
 will show a clear backend-configuration message instead of trying to call a
 nonexistent GitHub Pages API route.
 
@@ -338,5 +338,5 @@ CNAME
 The current `CNAME` is:
 
 ```text
-cmuyang23333.top
+muyang23333.top
 ```
