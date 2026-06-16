@@ -1,4 +1,51 @@
-﻿export default {
+﻿const LOCAL_WORKFLOW_HOSTS = new Set(["127.0.0.1", "localhost"]);
+const GITHUB_PAGES_STATIC_HOSTS = new Set(["cmuyang23333.top", "www.cmuyang23333.top"]);
+
+function cleanWorkflowApiBase(value) {
+  return String(value || "").trim().replace(/\/+$/, "");
+}
+
+function configuredWorkflowApiBaseRaw() {
+  if (typeof window === "undefined") return "";
+  const params = new URLSearchParams(window.location.search);
+  return String(
+    params.get("workflowApiBase") ||
+    params.get("apiBase") ||
+    import.meta.env?.VITE_WORKFLOW_API_BASE ||
+    import.meta.env?.VITE_APP_API_BASE_URL ||
+    ""
+  ).trim();
+}
+
+function configuredWorkflowApiBase() {
+  const rawBase = configuredWorkflowApiBaseRaw();
+  if (["same-origin", "self", "/"].includes(rawBase.toLowerCase())) return "";
+  return cleanWorkflowApiBase(rawBase);
+}
+
+function isLocalWorkflowHost() {
+  return typeof window !== "undefined" && LOCAL_WORKFLOW_HOSTS.has(window.location.hostname);
+}
+
+function resolveWorkflowApiBase() {
+  if (typeof window === "undefined") return "";
+  const configuredBase = configuredWorkflowApiBase();
+  if (configuredBase) return configuredBase;
+  if (isLocalWorkflowHost()) {
+    return new URLSearchParams(window.location.search).get("desktop") === "1" ? "" : "http://127.0.0.1:8787";
+  }
+  return "";
+}
+
+function isStaticPagesHostWithoutApi() {
+  if (typeof window === "undefined") return false;
+  return !configuredWorkflowApiBaseRaw() && (
+    window.location.hostname.endsWith(".github.io") ||
+    GITHUB_PAGES_STATIC_HOSTS.has(window.location.hostname)
+  );
+}
+
+export default {
   name: "AIWorkflowDemo",
   props: {
     lang: {
@@ -19,10 +66,9 @@
       runningStep: "",
       loadingTimer: null,
       loadingWordIndex: 0,
-      apiBase: typeof window !== "undefined" && ["127.0.0.1", "localhost"].includes(window.location.hostname)
-        ? (new URLSearchParams(window.location.search).get("desktop") === "1" ? "" : "http://127.0.0.1:8787")
-        : "",
-      localConfigAvailable: typeof window !== "undefined" && ["127.0.0.1", "localhost"].includes(window.location.hostname),
+      apiBase: resolveWorkflowApiBase(),
+      staticPagesNeedsApiBase: isStaticPagesHostWithoutApi(),
+      localConfigAvailable: isLocalWorkflowHost() && !configuredWorkflowApiBase(),
       apiStatus: {
         checked: false,
         online: false,
@@ -174,6 +220,7 @@
           realGenerated: "真实生成",
           serviceOffline: "本地生成服务未启动",
           serviceNoKey: "本地服务已启动，未检测到 OPENAI_API_KEY",
+          serviceNeedsApiBase: "GitHub Pages 只托管静态页面，请先配置远端生图后端 VITE_WORKFLOW_API_BASE。",
           fontOne: "飘逸宋体",
           fontTwo: "书法张扬体",
           fontRounded: "圆润可爱体",
@@ -233,6 +280,7 @@
           realGenerated: "Generated",
           serviceOffline: "Local generation server is offline",
           serviceNoKey: "Local server is running without OPENAI_API_KEY",
+          serviceNeedsApiBase: "GitHub Pages only hosts static files. Configure a remote workflow backend with VITE_WORKFLOW_API_BASE.",
           fontOne: "Thin serif",
           fontTwo: "Expressive script",
           fontRounded: "Rounded cute",
@@ -388,6 +436,17 @@
   },
   methods: {
     async checkWorkflowServer() {
+      if (this.staticPagesNeedsApiBase) {
+        this.apiStatus = {
+          checked: true,
+          online: false,
+          hasOpenAIKey: false,
+          provider: "",
+          message: this.labels.serviceNeedsApiBase
+        };
+        this.statusText = this.labels.serviceNeedsApiBase;
+        return;
+      }
       try {
         const response = await fetch(`${this.apiBase}/api/ai-workflow/status`);
         const data = await response.json();
@@ -412,6 +471,7 @@
       }
     },
     async loadWorkflowConfig() {
+      if (this.staticPagesNeedsApiBase) return;
       try {
         const response = await fetch(`${this.apiBase}/api/ai-workflow/config`);
         const data = await response.json();
@@ -616,6 +676,9 @@
       });
     },
     async postWorkflow(path, payload) {
+      if (this.staticPagesNeedsApiBase) {
+        throw new Error(this.labels.serviceNeedsApiBase);
+      }
       const response = await fetch(`${this.apiBase}${path}`, {
         method: "POST",
         headers: {

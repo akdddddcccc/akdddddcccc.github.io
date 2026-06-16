@@ -1,7 +1,7 @@
 # Chen Muyang Portfolio - Vue Version
 
 This branch is the Vue architecture version of the portfolio site for
-`muyang23333.top`.
+`cmuyang23333.top`.
 
 It is a static Vue 3 single page app. It can be hosted directly by GitHub Pages,
 Tencent Cloud Page One, or any static hosting service.
@@ -233,6 +233,61 @@ node-id=1667-835
 
 ## Deployment
 
+### GitHub Pages for `openai-official-test`
+
+This branch can be deployed to GitHub Pages with the included workflow:
+
+```text
+.github/workflows/deploy-openai-official-test-pages.yml
+```
+
+Use these repository settings:
+
+```text
+Pages source: GitHub Actions
+Custom domain: cmuyang23333.top
+```
+
+The GitHub Pages site is static. It cannot run `scripts/ai-workflow-server.mjs`
+and must not store an OpenAI API key in frontend code. For real generation,
+configure a separate workflow backend, such as a Cloudflare Worker, and expose
+only its public base URL to the frontend:
+
+```text
+Repository variable: VITE_WORKFLOW_API_BASE
+Example value: https://your-workflow-api.example.com
+```
+
+The earlier Cloudflare Worker note used `VITE_APP_API_BASE_URL`; this branch
+also accepts that name as a backward-compatible alias. Prefer
+`VITE_WORKFLOW_API_BASE` because this project calls workflow-specific routes,
+not a generic image-generation widget.
+
+If Cloudflare is proxying `cmuyang23333.top` and a Worker route handles
+`/api/ai-workflow/*` on the same domain, set:
+
+```text
+VITE_WORKFLOW_API_BASE=same-origin
+```
+
+The configured backend must provide these routes:
+
+```text
+GET  /api/ai-workflow/status
+GET  /api/ai-workflow/config
+POST /api/ai-workflow/sticker-backgrounds
+POST /api/ai-workflow/text-layer
+```
+
+If `VITE_WORKFLOW_API_BASE` is not set, the static page at `cmuyang23333.top`
+will show a clear backend-configuration message instead of trying to call a
+nonexistent GitHub Pages API route.
+
+Do not copy the old Contact-page example or `/v1/images/generations` client
+module into this branch. The demo needs the existing workflow API because it
+passes reference images, runs the three sticker pieces serially, and generates
+the text layer from the top sticker.
+
 For Tencent Cloud EdgeOne Pages / Page One, this branch includes `edgeone.json`
 with these build settings:
 
@@ -261,5 +316,5 @@ CNAME
 The current `CNAME` is:
 
 ```text
-muyang23333.top
+cmuyang23333.top
 ```
