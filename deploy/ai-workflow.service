@@ -1,0 +1,23 @@
+[Unit]
+Description=AI livestream sticker workflow backend
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Adjust User and WorkingDirectory to the deploy location on the unit server.
+User=www-data
+WorkingDirectory=/opt/ai-workflow/portfolio
+# Loads .env.local from WorkingDirectory, then starts the HTTP server.
+ExecStart=/usr/bin/node scripts/run-local-workflow.mjs
+Restart=on-failure
+RestartSec=3
+# Bind to all interfaces so the reverse proxy / public domain can reach it.
+Environment=AI_WORKFLOW_HOST=0.0.0.0
+Environment=AI_WORKFLOW_PORT=8787
+# Quota store must live on a writable, persistent path (survives restarts).
+Environment=QUOTA_STORE_PATH=/var/lib/ai-workflow/visitor-quota.json
+StateDirectory=ai-workflow
+
+[Install]
+WantedBy=multi-user.target
