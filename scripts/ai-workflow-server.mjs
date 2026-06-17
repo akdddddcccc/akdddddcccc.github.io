@@ -29,9 +29,15 @@ const QUOTA_STORE_PATH = process.env.QUOTA_STORE_PATH
   : new URL("../.data/visitor-quota.json", import.meta.url);
 
 // Per-request context: which provider to use + how many official calls this
-// visitor has spent. Only requestOpenAIImage() reads it, so the rest of the
-// pipeline is untouched.
+// visitor has spent. requestOpenAIImage() and the provider-aware edit helpers
+// read it, so the rest of the pipeline is untouched.
 const requestContext = new AsyncLocalStorage();
+
+function activeBaseUrl() {
+  const ctx = requestContext.getStore();
+  if (ctx && ctx.provider) return ctx.provider.baseUrl;
+  return openAIBaseUrl();
+}
 
 function activeProvider() {
   const ctx = requestContext.getStore();
@@ -42,9 +48,9 @@ const IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || "gpt-image-2";
 const IMAGE_QUALITY = process.env.OPENAI_IMAGE_QUALITY || "low";
 const IMAGE_OUTPUT_FORMAT = process.env.OPENAI_IMAGE_OUTPUT_FORMAT || "png";
 const TEXT_LAYER_OUTPUT_FORMAT = process.env.OPENAI_TEXT_LAYER_OUTPUT_FORMAT || "png";
-const USE_IMAGE_EDITS = process.env.OPENAI_IMAGE_USE_EDITS === "1";
+const DEFAULT_IMAGE_USE_EDITS = process.env.OPENAI_IMAGE_USE_EDITS !== "0";
 const IMAGE_TIMEOUT_MS = Number(process.env.OPENAI_IMAGE_TIMEOUT_MS || 90000);
-const IMAGE_EDIT_FIELD = process.env.OPENAI_IMAGE_EDIT_FIELD || "image";
+const IMAGE_EDIT_FIELD = process.env.OPENAI_IMAGE_EDIT_FIELD || "";
 const IMAGE_EDIT_SIZE = process.env.OPENAI_IMAGE_EDIT_SIZE || "";
 const IMAGE_EDIT_FALLBACK_SIZE = process.env.OPENAI_IMAGE_EDIT_FALLBACK_SIZE || (OPENAI_BASE_URL.includes("api.ofox.io") ? "1024x1024" : "");
 const IMAGE_EDIT_INCLUDE_EXTRAS = process.env.OPENAI_IMAGE_EDIT_INCLUDE_EXTRAS === "1";
@@ -72,6 +78,26 @@ function openAIProviderLabel() {
   return process.env.OPENAI_PROVIDER_LABEL || (baseUrl.includes("api.openai.com") ? "OpenAI official" : "Custom OpenAI-compatible API");
 }
 
+function imageOutputFormat() {
+  return normalizeOutputFormat(process.env.OPENAI_IMAGE_OUTPUT_FORMAT || IMAGE_OUTPUT_FORMAT, "png");
+}
+
+function textLayerOutputFormat() {
+  return normalizeOutputFormat(process.env.OPENAI_TEXT_LAYER_OUTPUT_FORMAT || TEXT_LAYER_OUTPUT_FORMAT, "png");
+}
+
+function useImageEdits() {
+  if (activeBaseUrl().includes("api.openai.com")) return true;
+  return process.env.OPENAI_IMAGE_USE_EDITS === undefined
+    ? DEFAULT_IMAGE_USE_EDITS
+    : process.env.OPENAI_IMAGE_USE_EDITS !== "0";
+}
+
+function imageEditField() {
+  if (activeBaseUrl().includes("api.openai.com")) return "image[]";
+  return process.env.OPENAI_IMAGE_EDIT_FIELD || IMAGE_EDIT_FIELD || "image";
+}
+
 function officialProvider() {
   return { baseUrl: openAIBaseUrl(), apiKey: openAIKey(), label: openAIProviderLabel(), tier: "official" };
 }
@@ -81,10 +107,9 @@ function fallbackProvider() {
 }
 
 // --- Visitor quota store: a single JSON file guarded by a write queue. ---
-// Shape: { "<token>": { used: <number>, updatedAt: "<iso passed in via stamp>" } }
-// We keep an in-memory cache and serialize writes through quotaWriteChain so
-// concurrent image calls in one round cannot clobber each other (single
-// process). Swapping this module for SQLite later only touches these helpers.
+// Shape: { "<token>": { used: <number> } }. In-memory cache + serialized writes
+// via quotaWriteChain so concurrent image calls in one round cannot clobber each
+// other (single process). Swapping for SQLite later only touches these helpers.
 let quotaCache = null;
 let quotaWriteChain = Promise.resolve();
 
@@ -129,12 +154,36 @@ function incrementQuota(token) {
   persistQuotaStore();
 }
 
-function imageOutputFormat() {
-  return normalizeOutputFormat(process.env.OPENAI_IMAGE_OUTPUT_FORMAT || IMAGE_OUTPUT_FORMAT, "png");
+function anyImageProviderAvailable() {
+  if (openAIKey()) return true;
+  return QUOTA_ENABLED && Boolean(FALLBACK_OPENAI_API_KEY);
 }
 
-function textLayerOutputFormat() {
-  return normalizeOutputFormat(process.env.OPENAI_TEXT_LAYER_OUTPUT_FORMAT || TEXT_LAYER_OUTPUT_FORMAT, "png");
+// Runs one logical image generation (fn may retry internally) under the right
+// provider. Official is used while the visitor has quota; on official error or
+// exhausted quota it transparently retries the same fn on the relay provider.
+// Quota is charged once per successful official logical image. Passthrough when
+// QUOTA_ENABLED is off so existing single-provider deployments are unchanged.
+async function generateWithQuota(token, fn) {
+  if (!QUOTA_ENABLED) return fn();
+
+  const hasOfficial = Boolean(openAIKey());
+  const hasFallback = Boolean(FALLBACK_OPENAI_API_KEY);
+  const canUseOfficial = hasOfficial && Boolean(token) && quotaRemaining(token) > 0;
+
+  if (canUseOfficial) {
+    try {
+      const result = await requestContext.run({ provider: officialProvider(), token }, fn);
+      incrementQuota(token);
+      return result;
+    } catch (error) {
+      if (!hasFallback) throw error;
+      return requestContext.run({ provider: fallbackProvider(), token }, fn);
+    }
+  }
+
+  if (hasFallback) return requestContext.run({ provider: fallbackProvider(), token }, fn);
+  return requestContext.run({ provider: officialProvider(), token }, fn);
 }
 
 const stickerSpecs = {
@@ -248,8 +297,8 @@ async function saveWorkflowConfig(body = {}) {
     `OPENAI_IMAGE_QUALITY=${IMAGE_QUALITY}`,
     `OPENAI_IMAGE_OUTPUT_FORMAT=${process.env.OPENAI_IMAGE_OUTPUT_FORMAT || IMAGE_OUTPUT_FORMAT}`,
     `OPENAI_TEXT_LAYER_OUTPUT_FORMAT=${process.env.OPENAI_TEXT_LAYER_OUTPUT_FORMAT || TEXT_LAYER_OUTPUT_FORMAT}`,
-    `OPENAI_IMAGE_USE_EDITS=${USE_IMAGE_EDITS ? "1" : "0"}`,
-    `OPENAI_IMAGE_EDIT_FIELD=${IMAGE_EDIT_FIELD}`,
+    `OPENAI_IMAGE_USE_EDITS=${useImageEdits() ? "1" : "0"}`,
+    `OPENAI_IMAGE_EDIT_FIELD=${imageEditField()}`,
     `OPENAI_IMAGE_EDIT_INCLUDE_EXTRAS=${IMAGE_EDIT_INCLUDE_EXTRAS ? "1" : "0"}`,
     `OPENAI_IMAGE_TIMEOUT_MS=${IMAGE_TIMEOUT_MS}`,
     `AI_WORKFLOW_GENERATION_MODE=${GENERATION_MODE}`,
@@ -313,11 +362,22 @@ function extensionForMime(mime) {
   return "png";
 }
 
+function isSupportedReferenceMime(mime) {
+  return ["image/png", "image/jpeg", "image/webp"].includes(String(mime || "").toLowerCase());
+}
+
+function isSupportedReferenceDataUrl(dataUrl) {
+  if (!dataUrl || !dataUrl.startsWith("data:")) return false;
+  const match = dataUrl.match(/^data:([^;,]+);base64,/);
+  return Boolean(match && isSupportedReferenceMime(match[1]));
+}
+
 function dataUrlToUploadFile(dataUrl, index) {
   if (!dataUrl || !dataUrl.startsWith("data:")) return null;
   const match = dataUrl.match(/^data:([^;,]+);base64,(.+)$/);
   if (!match) return null;
   const mime = match[1] || "image/png";
+  if (!isSupportedReferenceMime(mime)) return null;
   const buffer = Buffer.from(match[2], "base64");
   const filename = `reference-${index + 1}.${extensionForMime(mime)}`;
   if (typeof File !== "undefined") {
@@ -339,7 +399,7 @@ async function requestOpenAIImage({ prompt, size, referenceImage, referenceImage
     : (referenceImage ? [referenceImage] : []);
 
   try {
-    if (USE_IMAGE_EDITS && inputImages.length) {
+    if (useImageEdits() && inputImages.length) {
       const imageFiles = inputImages.map((image, index) => dataUrlToUploadFile(image, index)).filter(Boolean);
       if (imageFiles.length) {
         const body = new FormData();
@@ -351,7 +411,7 @@ async function requestOpenAIImage({ prompt, size, referenceImage, referenceImage
           body.append("output_format", outputFormat);
         }
         imageFiles.forEach((imageFile, index) => {
-          body.append(IMAGE_EDIT_FIELD, imageFile, imageFile.name || `reference-${index + 1}.png`);
+          body.append(imageEditField(), imageFile, imageFile.name || `reference-${index + 1}.png`);
         });
         const response = await fetch(`${baseUrl}/images/edits`, {
           method: "POST",
@@ -526,11 +586,12 @@ function normalizeStickerImageSize(dataUrl, kind) {
   return `data:image/png;base64,${encodeRgbaToPng(normalized).toString("base64")}`;
 }
 
-async function requestCheckedStickerImage(kind, prompt, referenceImage, editSize) {
+async function requestCheckedStickerImage(kind, prompt, referenceImage, editSize, referenceImages) {
   const image = await requestOpenAIImage({
     prompt,
     size: stickerSpecs[kind].size,
     referenceImage,
+    referenceImages,
     editSize,
     outputFormat: imageOutputFormat()
   });
@@ -539,15 +600,19 @@ async function requestCheckedStickerImage(kind, prompt, referenceImage, editSize
   return normalizeStickerImageSize(dataUrl, kind);
 }
 
-async function requestStickerImage(kind, prompt, referenceImage) {
+async function requestStickerImage(kind, prompt, referenceImage, options = {}) {
   const failedAttempts = [];
+  const preferredReferenceImages = Array.isArray(options.referenceImages)
+    ? options.referenceImages.filter(Boolean)
+    : [];
   const tryAttempt = async (label, options = {}) => {
     try {
       return await requestCheckedStickerImage(
         kind,
         options.prompt || prompt,
         options.referenceImage ?? referenceImage,
-        options.editSize
+        options.editSize,
+        options.referenceImages
       );
     } catch (error) {
       failedAttempts.push(`${label}: ${error.message || "failed"}`);
@@ -555,18 +620,38 @@ async function requestStickerImage(kind, prompt, referenceImage) {
     }
   };
 
-  const directResult = await tryAttempt("reference edit");
+  const directResult = await tryAttempt(
+    preferredReferenceImages.length > 1 ? "reference edit with series source" : "reference edit",
+    preferredReferenceImages.length ? { referenceImages: preferredReferenceImages } : {}
+  );
   if (directResult) return { image: directResult, warning: "" };
 
+  if (preferredReferenceImages.length > 1) {
+    const originalOnlyResult = await tryAttempt("reference edit original only");
+    if (originalOnlyResult) {
+      return {
+        image: originalOnlyResult,
+        warning: `${stickerSpecs[kind].zhName} 的双参考图生图失败，已只用原始参考图重试；套系一致性可能降低。`
+      };
+    }
+  }
+
   const requestedEditSize = IMAGE_EDIT_SIZE || stickerSpecs[kind].size;
-  if (USE_IMAGE_EDITS && referenceImage && IMAGE_EDIT_FALLBACK_SIZE && requestedEditSize !== IMAGE_EDIT_FALLBACK_SIZE) {
-    const squareResult = await tryAttempt(`reference edit ${IMAGE_EDIT_FALLBACK_SIZE}`, { editSize: IMAGE_EDIT_FALLBACK_SIZE });
+  if (useImageEdits() && referenceImage && IMAGE_EDIT_FALLBACK_SIZE && requestedEditSize !== IMAGE_EDIT_FALLBACK_SIZE) {
+    const squareResult = await tryAttempt(`reference edit ${IMAGE_EDIT_FALLBACK_SIZE}`, {
+      editSize: IMAGE_EDIT_FALLBACK_SIZE,
+      referenceImages: preferredReferenceImages.length ? preferredReferenceImages : undefined
+    });
     if (squareResult) {
       return {
         image: squareResult,
         warning: `${stickerSpecs[kind].zhName} 的原比例图生图失败，已用 ${IMAGE_EDIT_FALLBACK_SIZE} 兼容尺寸生成并裁成贴片比例。`
       };
     }
+  }
+
+  if (useImageEdits() && referenceImage) {
+    throw new Error(failedAttempts.join(" / ") || "Reference image edit failed");
   }
 
   const generationPrompt = [
@@ -882,38 +967,6 @@ function removeConnectedWhiteBackground(dataUrl) {
   return `data:image/png;base64,${encodeRgbaToPng(png).toString("base64")}`;
 }
 
-// Runs one logical image generation (fn may retry internally) under the right
-// provider. Official is used while the visitor has quota; on official error or
-// exhausted quota it transparently retries the same fn on the relay provider.
-// Quota is charged once per successful official logical image. Passthrough when
-// QUOTA_ENABLED is off so existing single-provider deployments are unchanged.
-function anyImageProviderAvailable() {
-  if (openAIKey()) return true;
-  return QUOTA_ENABLED && Boolean(FALLBACK_OPENAI_API_KEY);
-}
-
-async function generateWithQuota(token, fn) {
-  if (!QUOTA_ENABLED) return fn();
-
-  const hasOfficial = Boolean(openAIKey());
-  const hasFallback = Boolean(FALLBACK_OPENAI_API_KEY);
-  const canUseOfficial = hasOfficial && Boolean(token) && quotaRemaining(token) > 0;
-
-  if (canUseOfficial) {
-    try {
-      const result = await requestContext.run({ provider: officialProvider(), token }, fn);
-      incrementQuota(token);
-      return result;
-    } catch (error) {
-      if (!hasFallback) throw error;
-      return requestContext.run({ provider: fallbackProvider(), token }, fn);
-    }
-  }
-
-  if (hasFallback) return requestContext.run({ provider: fallbackProvider(), token }, fn);
-  return requestContext.run({ provider: officialProvider(), token }, fn);
-}
-
 async function handleStickerBackgrounds(body, token = "") {
   const kinds = ["top", "side", "bottom"];
   const workflowDoc = await readWorkflowDoc();
@@ -932,9 +985,9 @@ async function handleStickerBackgrounds(body, token = "") {
       model: IMAGE_MODEL,
       quality: IMAGE_QUALITY,
       baseUrl: openAIBaseUrl(),
-      useImageEdits: USE_IMAGE_EDITS,
+      useImageEdits: useImageEdits(),
       timeoutMs: IMAGE_TIMEOUT_MS,
-      imageEditField: IMAGE_EDIT_FIELD,
+      imageEditField: imageEditField(),
       imageEditSize: IMAGE_EDIT_SIZE || "per-sticker-size",
       imageEditFallbackSize: IMAGE_EDIT_FALLBACK_SIZE || "off",
       imageEditIncludeExtras: IMAGE_EDIT_INCLUDE_EXTRAS,
@@ -950,10 +1003,18 @@ async function handleStickerBackgrounds(body, token = "") {
   const results = {};
   const errors = {};
   const warnings = {};
+  const referenceImagesForKind = (kind) => {
+    const seriesReferenceImage = body.seriesReferenceImage || "";
+    return kind === "top" || !isSupportedReferenceDataUrl(seriesReferenceImage)
+      ? [body.referenceImage].filter(Boolean)
+      : [body.referenceImage, seriesReferenceImage].filter(Boolean);
+  };
 
   if (singleKind) {
     try {
-      const result = await generateWithQuota(token, () => requestStickerImage(singleKind, prompts[singleKind], body.referenceImage));
+      const result = await generateWithQuota(token, () => requestStickerImage(singleKind, prompts[singleKind], body.referenceImage, {
+        referenceImages: referenceImagesForKind(singleKind)
+      }));
       results[singleKind] = result.image;
       if (result.warning) warnings[singleKind] = result.warning;
     } catch (error) {
@@ -963,7 +1024,9 @@ async function handleStickerBackgrounds(body, token = "") {
   } else if (GENERATION_MODE === "parallel") {
     const settled = await Promise.allSettled(kinds.map(async (kind) => [
       kind,
-      await generateWithQuota(token, () => requestStickerImage(kind, prompts[kind], body.referenceImage))
+      await generateWithQuota(token, () => requestStickerImage(kind, prompts[kind], body.referenceImage, {
+        referenceImages: referenceImagesForKind(kind)
+      }))
     ]));
 
     settled.forEach((result, index) => {
@@ -979,7 +1042,9 @@ async function handleStickerBackgrounds(body, token = "") {
   } else {
     for (const kind of kinds) {
       try {
-        const result = await generateWithQuota(token, () => requestStickerImage(kind, prompts[kind], body.referenceImage));
+        const result = await generateWithQuota(token, () => requestStickerImage(kind, prompts[kind], body.referenceImage, {
+          referenceImages: referenceImagesForKind(kind)
+        }));
         results[kind] = result.image;
         if (result.warning) warnings[kind] = result.warning;
       } catch (error) {
@@ -996,9 +1061,9 @@ async function handleStickerBackgrounds(body, token = "") {
     model: IMAGE_MODEL,
     quality: IMAGE_QUALITY,
     baseUrl: openAIBaseUrl(),
-    useImageEdits: USE_IMAGE_EDITS,
+    useImageEdits: useImageEdits(),
     timeoutMs: IMAGE_TIMEOUT_MS,
-    imageEditField: IMAGE_EDIT_FIELD,
+    imageEditField: imageEditField(),
     imageEditSize: IMAGE_EDIT_SIZE || "per-sticker-size",
     imageEditFallbackSize: IMAGE_EDIT_FALLBACK_SIZE || "off",
     imageEditIncludeExtras: IMAGE_EDIT_INCLUDE_EXTRAS,
@@ -1032,7 +1097,7 @@ async function handleTextLayer(body, token = "") {
     "The final image must be a clean white-background typography design draft, not a transparent image.",
     "Do not composite onto any reference image or recreate any reference background.",
     topStickerImage
-      ? "Reference image 1 is the generated top sticker. It is the primary visual source: inherit typography color direction, material feeling, brightness contrast, and small decorative accents around or attached to letters from this top sticker."
+      ? "Reference image 1 is the generated top sticker. It is the primary visual source for material feeling, brightness contrast, and small decorative accents around or attached to letters. Do not blindly copy its main palette into the main letter fill."
       : "",
     fontReferenceImage
       ? (fontReferenceSource === "preset"
@@ -1045,14 +1110,16 @@ async function handleTextLayer(body, token = "") {
     body.useReferenceTextStyle
       ? "The user asked to consider text-style cues from the original step-1 reference, but no extra source image is attached for stability. Infer only generic typography qualities that are already visible in the new top sticker and the selected typography route; do not introduce any old palette or scene residue."
       : "",
-    "The top sticker reference always wins for color, material direction, and small surrounding decorative elements.",
+    "The top sticker reference always wins for material direction and small surrounding decorative elements.",
     "Palette isolation: the original uploaded source image and any typography reference must never affect lettering color. They may not introduce old colors, previous palettes, background tones, product colors, or scene lighting into the new text layer.",
-    "Use only the newly generated top sticker as the palette source. If the top sticker is pale near its fade edge, sample color from its most saturated decorative/highlight areas instead of the faded white transition.",
-    "Color lock: choose lettering fill, outline, shadow, highlights, edge effects, and small accent strokes only from Reference image 1/top sticker or from neutral contrast needed for readability. Never borrow the color palette from a font reference or typography preset.",
+    "Contrast-first color adaptation: first judge whether the usable top-sticker background/ornament area is light or dark, ignoring pure white fade zones. If the top sticker reads light, pale, airy, or white-heavy, the main lettering fill must be deep charcoal, near-black, ink black, or another very dark neutral. If the top sticker reads dark, saturated, or heavy, the main lettering fill must be warm white, ivory, pearl, or another very light neutral.",
+    "This light/dark decision controls only color and small decorative elements, not the letterform route, font structure, copy, layout hierarchy, or stroke style.",
+    "Use Reference image 1/top sticker colors only for tiny accent strokes, sparkles, outlines, edge glints, shadows, or small attached ornaments. Do not use top-sticker accent colors as the dominant main letter fill when they reduce contrast.",
+    "Color lock: choose lettering fill from the contrast-first dark/bright neutral rule above. Choose outline, shadow, highlights, edge effects, and small accent strokes from Reference image 1/top sticker only when they help readability and local harmony. Never borrow the color palette from a font reference or typography preset.",
     "Letterform lock: the selected typography route controls silhouette, stroke structure, serif/brush/rounded character, and spacing. The top sticker reference must not collapse different typography routes into the same font style.",
     "The optional font reference never decides the background, global color, large ornaments, or non-text visual content.",
     "Do not recreate large color blocks, ribbons, watercolor backgrounds, geometric networks, poster scenes, people, products, logos, QR codes, labels, captions, slogans, signatures, or watermarks.",
-    "First judge the intended text placement brightness from the top sticker: light placement areas need darker lettering; dark or saturated placement areas need lighter lettering with strong outline, shadow, or contrast edge.",
+    "Before rendering, explicitly apply the contrast decision: light top sticker -> dark/black typography; dark top sticker -> light/white typography. Keep the decorative color details secondary.",
     "必须逐字保留以下原文案，不增删、不翻译、不改写，保留换行结构：",
     copyText,
     styleKey === "expressive"
@@ -1189,9 +1256,9 @@ async function workflowStatus(token = "") {
     quality: IMAGE_QUALITY,
     outputFormat: imageOutputFormat(),
     baseUrl: openAIBaseUrl(),
-    useImageEdits: USE_IMAGE_EDITS,
+    useImageEdits: useImageEdits(),
     timeoutMs: IMAGE_TIMEOUT_MS,
-    imageEditField: IMAGE_EDIT_FIELD,
+    imageEditField: imageEditField(),
     imageEditSize: IMAGE_EDIT_SIZE || "per-sticker-size",
     imageEditFallbackSize: IMAGE_EDIT_FALLBACK_SIZE || "off",
     imageEditIncludeExtras: IMAGE_EDIT_INCLUDE_EXTRAS,
@@ -1268,7 +1335,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.log(`OpenAI base URL: ${openAIBaseUrl()}`);
     console.log(`Image model: ${IMAGE_MODEL}`);
     console.log(`Image timeout: ${IMAGE_TIMEOUT_MS}ms`);
-    console.log(`Image edit field: ${IMAGE_EDIT_FIELD}`);
+    console.log(`Image edit field: ${imageEditField()}`);
     console.log(`Generation mode: ${GENERATION_MODE}`);
     console.log(`OpenAI key: ${openAIKey() ? "configured" : "missing, local SVG fallback enabled"}`);
     if (QUOTA_ENABLED) {
@@ -1280,5 +1347,3 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     }
   });
 }
-
-
