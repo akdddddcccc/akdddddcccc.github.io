@@ -1,4 +1,20 @@
-﻿export default {
+﻿// Resolve the workflow backend origin. Order of precedence:
+//   1. window.__AI_WORKFLOW_API_BASE__  (set in index.html per deployment — lets
+//      a static GitHub Pages build point at the unit server without rebuilding)
+//   2. localhost dev → local Node server on :8787 (unless ?desktop=1)
+//   3. same-origin "" (legacy / co-hosted backend)
+function resolveApiBase() {
+  if (typeof window === "undefined") return "";
+  const override = window.__AI_WORKFLOW_API_BASE__;
+  if (typeof override === "string" && override.trim()) return override.trim().replace(/\/+$/, "");
+  const isLocal = ["127.0.0.1", "localhost"].includes(window.location.hostname);
+  if (isLocal) {
+    return new URLSearchParams(window.location.search).get("desktop") === "1" ? "" : "http://127.0.0.1:8787";
+  }
+  return "";
+}
+
+export default {
   name: "AIWorkflowDemo",
   props: {
     lang: {
@@ -19,9 +35,9 @@
       runningStep: "",
       loadingTimer: null,
       loadingWordIndex: 0,
-      apiBase: typeof window !== "undefined" && ["127.0.0.1", "localhost"].includes(window.location.hostname)
-        ? (new URLSearchParams(window.location.search).get("desktop") === "1" ? "" : "http://127.0.0.1:8787")
-        : "",
+      apiBase: resolveApiBase(),
+      visitorToken: typeof window !== "undefined" ? (window.localStorage.getItem("aiWorkflowVisitorToken") || "") : "",
+      quota: null,
       localConfigAvailable: typeof window !== "undefined" && ["127.0.0.1", "localhost"].includes(window.location.hostname),
       apiStatus: {
         checked: false,
@@ -121,6 +137,20 @@
     };
   },
   computed: {
+    quotaText() {
+      if (!this.quota || !this.quota.enabled) return "";
+      const perRound = this.quota.callsPerRound || 4;
+      const remaining = typeof this.quota.remaining === "number" ? this.quota.remaining : this.quota.limit;
+      const rounds = Math.floor(remaining / perRound);
+      if (this.lang === "zh") {
+        return remaining > 0
+          ? `官方额度剩余 ${remaining} 次调用（约 ${rounds} 轮完整生成），用尽后将自动切换到中转通道。`
+          : "官方体验额度已用尽，已切换到中转通道继续生成。";
+      }
+      return remaining > 0
+        ? `Official quota: ${remaining} calls left (~${rounds} full rounds), then auto-switches to the relay.`
+        : "Official trial quota used up — now generating via the relay channel.";
+    },
     labels() {
       return {
         zh: {
@@ -384,8 +414,11 @@
   methods: {
     async checkWorkflowServer() {
       try {
-        const response = await fetch(`${this.apiBase}/api/ai-workflow/status`);
+        const headers = this.visitorToken ? { "X-Visitor-Token": this.visitorToken } : {};
+        const response = await fetch(`${this.apiBase}/api/ai-workflow/status`, { headers });
+        this.captureVisitorToken(response);
         const data = await response.json();
+        this.quota = data.quota || null;
         this.apiStatus = {
           checked: true,
           online: Boolean(data.ok),
@@ -610,14 +643,22 @@
         reader.readAsDataURL(file);
       });
     },
+    captureVisitorToken(response) {
+      const token = response.headers.get("X-Visitor-Token");
+      if (token && token !== this.visitorToken) {
+        this.visitorToken = token;
+        try { window.localStorage.setItem("aiWorkflowVisitorToken", token); } catch {}
+      }
+    },
     async postWorkflow(path, payload) {
+      const headers = { "Content-Type": "application/json" };
+      if (this.visitorToken) headers["X-Visitor-Token"] = this.visitorToken;
       const response = await fetch(`${this.apiBase}${path}`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers,
         body: JSON.stringify(payload)
       });
+      this.captureVisitorToken(response);
       const responseText = await response.text();
       let data = {};
       try {
@@ -636,6 +677,7 @@
       if (!response.ok) {
         throw new Error(data.message || "Workflow request failed");
       }
+      if (data && data.quota) this.quota = data.quota;
       return data;
     },
     async runStickerBackgrounds() {
@@ -1781,6 +1823,7 @@
               <small>{{ statusText }}</small>
             </div>
             <p class="ai-status-line">{{ statusText }}</p>
+            <p v-if="quota && quota.enabled" class="ai-quota-line">{{ quotaText }}</p>
           </div>
         </article>
       </div>
