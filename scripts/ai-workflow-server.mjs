@@ -774,7 +774,7 @@ function removeConnectedWhiteBackground(dataUrl) {
 }
 
 async function handleStickerBackgrounds(body) {
-  const kinds = ["top", "side", "bottom"];
+  const kinds = ["top", "bottom", "side"];
   const workflowDoc = await readWorkflowDoc();
   const prompts = Object.fromEntries(kinds.map((kind) => [
     kind,
@@ -885,6 +885,13 @@ async function handleTextLayer(body) {
   const fontReferenceImage = TEXT_LAYER_USE_FONT_REFERENCE ? (body.fontReferenceImage || "") : "";
   const sourceTypographyReferenceImage = TEXT_LAYER_USE_SOURCE_REFERENCE ? (body.sourceTypographyReferenceImage || "") : "";
   const referenceImages = [topStickerImage, fontReferenceImage, sourceTypographyReferenceImage].filter(Boolean);
+  const debug = {
+    topStickerAttached: Boolean(topStickerImage),
+    fontReferenceAttached: Boolean(fontReferenceImage),
+    sourceTypographyReferenceAttached: Boolean(sourceTypographyReferenceImage),
+    referenceImageCount: referenceImages.length,
+    fontReferenceSource
+  };
   const prompt = [
     "Generate a standalone livestream typography asset on a strict pure white #ffffff background.",
     "The final image must be a clean white-background typography design draft, not a transparent image.",
@@ -950,6 +957,7 @@ async function handleTextLayer(body) {
       prompt,
       model: IMAGE_MODEL,
       size: TEXT_LAYER_SIZE,
+      debug,
       message: !openAIKey()
         ? "未检测到 OPENAI_API_KEY，已返回本地 SVG 文字图层草稿。"
         : "文字图层 API 已关闭，已返回本地 SVG 文字图层草稿。"
@@ -1004,6 +1012,7 @@ async function handleTextLayer(body) {
       prompt,
       model: IMAGE_MODEL,
       size: TEXT_LAYER_SIZE,
+      debug,
       referenceFallback,
       error: cutoutError || referenceFallback,
       message: cutoutOk
@@ -1026,6 +1035,7 @@ async function handleTextLayer(body) {
       prompt,
       model: IMAGE_MODEL,
       size: TEXT_LAYER_SIZE,
+      debug,
       error: error.message || "Text layer generation failed",
       message: `文字图层 API 生成失败，已回退本地 SVG 草稿：${error.message || "unknown error"}`
     };
