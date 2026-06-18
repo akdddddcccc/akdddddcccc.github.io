@@ -199,6 +199,7 @@ function buildStickerPrompt(kind, userPrompt, workflowDoc) {
     "Color fidelity lock: do not wash out the whole image. Preserve the reference image's vivid accent colors, material richness, local dark-light contrast, and decorative density in the active ornament area.",
     "Dimensionality lock: match only the current reference image's dimensional style. Do not inherit 3D, bevel, plastic, metallic, volumetric, cinematic, or flat poster traits from any previous generation. If the current reference is flat, stay flat; if the current reference is 3D-rendered, keep a coherent 3D-rendered style across all three stickers.",
     "Fade control: the pale/white transition is only a compositing edge treatment, not a global color grade. Avoid pastelizing, desaturating, flattening, or turning the entire sticker into a single pale color.",
+    "Soft-edge lock (critical): along the fade side, decorations, shapes, and colors must dissolve smoothly and gradually into a near-white / transparent-feeling zone. Absolutely do not draw any crisp outline, hard contour line, stroke, border, divider line, hand-drawn boundary line, ridge, seam, or sharp cut-off where the image meets the fade. There must be no visible line marking where the fade begins; the transition is a continuous gradient with no hard edge.",
     fadeZone,
     "",
     userPrompt ? `本轮用户补充要求：${userPrompt}` : "",
