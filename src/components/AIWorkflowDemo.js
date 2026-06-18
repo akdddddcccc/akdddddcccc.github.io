@@ -1205,31 +1205,42 @@
       const source = this.stickerOutputs[kind];
       if (!source) return null;
       const height = kind === "top" ? this.topStickerHeight : this.bottomStickerHeight;
-      const offsetY = kind === "top" ? 0 : this.bottomStickerY;
-      const image = await this.loadImageSource(source);
+      const y = kind === "top" ? 0 : this.bottomStickerY;
+      const maskId = kind === "top" ? "aiTopStickerExportMask" : "aiBottomStickerExportMask";
+      const maskD = kind === "top" ? this.topMaskD : this.bottomMaskD;
+      const preserveAspectRatio = kind === "top" ? "xMidYMin meet" : "xMidYMax meet";
+      const fullCanvas = this.createRenderCanvas(this.compositionSize.width, this.compositionSize.height);
+      const fullCtx = fullCanvas.getContext("2d");
+      const svg = [
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${this.compositionSize.width}" height="${this.compositionSize.height}" viewBox="0 0 ${this.compositionSize.width} ${this.compositionSize.height}">`,
+        "<defs>",
+        '<filter id="aiFadeBlur" x="-30%" y="-30%" width="160%" height="160%">',
+        '<feGaussianBlur stdDeviation="42" />',
+        "</filter>",
+        `<mask id="${maskId}" maskUnits="userSpaceOnUse" x="${-this.stickerFadeBleed}" y="${-this.stickerFadeBleed}" width="${this.compositionSize.width + this.stickerFadeBleed * 2}" height="${this.compositionSize.height + this.stickerFadeBleed * 2}">`,
+        `<rect x="${-this.stickerFadeBleed}" y="${-this.stickerFadeBleed}" width="${this.compositionSize.width + this.stickerFadeBleed * 2}" height="${this.compositionSize.height + this.stickerFadeBleed * 2}" fill="black" />`,
+        `<path d="${this.escapeSvgAttr(maskD)}" fill="white" filter="url(#aiFadeBlur)" />`,
+        "</mask>",
+        "</defs>",
+        `<image href="${this.escapeSvgAttr(source)}" x="0" y="${y}" width="${this.compositionSize.width}" height="${height}" preserveAspectRatio="${preserveAspectRatio}" mask="url(#${maskId})" />`,
+        "</svg>"
+      ].join("");
+      const image = await this.loadImageSource(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`);
+      fullCtx.clearRect(0, 0, fullCanvas.width, fullCanvas.height);
+      fullCtx.drawImage(image, 0, 0, fullCanvas.width, fullCanvas.height);
+
       const canvas = this.createRenderCanvas(this.compositionSize.width, height);
       const ctx = canvas.getContext("2d");
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-      this.applyStickerMask(canvas, kind, offsetY);
+      ctx.drawImage(fullCanvas, 0, y, canvas.width, height, 0, 0, canvas.width, height);
       return canvas;
     },
-    applyStickerMask(canvas, kind, offsetY = 0) {
-      const mask = this.createRenderCanvas(canvas.width, canvas.height);
-      const maskCtx = mask.getContext("2d");
-      const path = new Path2D(kind === "top" ? this.topMaskD : this.bottomMaskD);
-      maskCtx.save();
-      maskCtx.translate(0, -offsetY);
-      maskCtx.filter = `blur(${kind === "top" ? 42 : 42}px)`;
-      maskCtx.fillStyle = "#fff";
-      maskCtx.fill(path);
-      maskCtx.restore();
-
-      const ctx = canvas.getContext("2d");
-      ctx.save();
-      ctx.globalCompositeOperation = "destination-in";
-      ctx.drawImage(mask, 0, 0);
-      ctx.restore();
+    escapeSvgAttr(value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/"/g, "&quot;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
     },
     async renderTextLayerPng() {
       const canvas = this.createRenderCanvas(this.textLayer.width, this.textLayer.height);

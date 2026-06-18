@@ -56,7 +56,7 @@ const stickerSpecs = {
     size: "1536x1024",
     width: 1536,
     height: 1024,
-    instruction: "生成直播间顶部横向贴片。顶部和左右边缘可有装饰、材质和光效，底边必须自然过渡到中性纯白或近白背景。若存在聚焦感，视觉轻微向下汇聚，但不要形成明确主体或海报中心。"
+    instruction: "生成直播间顶部横向贴片。装饰主要在上沿、左右上角和左右边缘；中心不强制浅色或纯白，但必须安静、低纹理、低复杂度、低干扰。只有底部 20%-28% 是中性纯白渐变结构区，最底边必须干净、无线条、无深色块、无复杂纹理。若存在聚焦感，视觉轻微向下汇聚，但不要形成明确主体或海报中心。"
   },
   side: {
     zhName: "侧贴背景",
@@ -64,7 +64,7 @@ const stickerSpecs = {
     size: "1024x1536",
     width: 1024,
     height: 1536,
-    instruction: "生成直播间侧边竖向窄幅贴片。装饰集中在左上角、上沿或外侧边缘，大部分区域保持素净、透气，不抢直播主体和商品。不要强纵深、不要中心主体、不要密集信息排版。严禁密铺、平铺、网格式重复、花纹重复、连续小图案、壁纸纹样或满版装饰；侧贴必须像一条留白充足的边缘贴片，而不是 pattern tile。"
+    instruction: "生成直播间侧边竖向窄幅贴片。装饰默认只集中在左上角和上边沿；其余 75%-88% 区域保持素净、弱纹理、低对比，不抢直播主体和商品。侧贴不强制向纯白过渡，可保留当前轮同色系安静底色。不要下角强装饰，不要左半边满图案，不要贯穿整条边的复杂纹理，不要强纵深、中心主体或密集信息排版。严禁密铺、平铺、网格式重复、花纹重复、连续小图案、壁纸纹样或满版装饰；侧贴必须像一条留白充足的辅助边缘，而不是独立主视觉或 pattern tile。"
   },
   bottom: {
     zhName: "下贴背景",
@@ -72,7 +72,7 @@ const stickerSpecs = {
     size: "1536x1024",
     width: 1536,
     height: 1024,
-    instruction: "生成直播间底部横向贴片。下沿可承载主要装饰、材质和光效，顶边必须自然过渡到中性纯白或近白背景。若存在聚焦感，视觉轻微向上汇聚，但不要形成明确主体或促销海报感。"
+    instruction: "生成直播间底部横向贴片。视觉重心集中在下沿、左右下角和底部边缘；底部装饰应比上贴更稳、更低、更克制。只有顶部 25%-32% 是中性纯白渐变结构区，最顶边必须干净、无线条、无深色块、无复杂纹理。不要硬底条、页脚栏或信息栏感。若存在聚焦感，视觉轻微向上汇聚，但不要形成明确主体或促销海报感。"
   }
 };
 
@@ -80,7 +80,7 @@ const basePrompt = `根据当前唯一参考图生成直播间贴片背景底图
 只继承当前参考图的构图气质、色彩关系、材质、光效、边缘装饰密度和留白方式。
 不要继承或生成文字、logo、二维码、价格标签、促销信息、人物、具体商品、海报排版、信息图结构。
 将参考图中的主体转译为抽象背景语言，使画面适合叠加直播间内容。
-整体干净、透气、浅色过渡自然，不抢直播主体。`;
+整体干净、透气，不抢直播主体；中心或内侧可以保留当前参考图的主色和材质气质，只要低干扰。纯白渐变只属于上贴底边和底贴顶边的结构要求，不能把整张图都洗成白色或淡色。`;
 
 const negativePrompt = `禁止生成：文字、logo、二维码、人物、具体商品、价格、优惠券、促销标签、按钮、信息图、海报模板、广告版式、月亮、天体、球体、强中心主体、强边框、深色压迫背景、过密装饰、脏灰底色。`;
 
@@ -184,10 +184,10 @@ function buildStickerPrompt(kind, userPrompt, workflowDoc) {
     "Role variation only: change placement and crop for top/side/bottom, but do not invent a different visual genre for one piece. The three pieces should look like siblings, not separate campaigns."
   ].join("\n");
   const fadeZone = kind === "top"
-    ? "For the top sticker, only the lower 20-30% may fade toward white for compositing. The upper and side decoration areas must keep the reference image's strongest saturation, contrast, texture depth, and highlight intensity. Match the current reference image's dimensionality: if it is flat 2D, keep it flat and graphic; if it is 3D-rendered, keep the same 3D/rendered language."
+    ? "For the top sticker, only the lower 20-28% may fade toward neutral pure white for compositing. The center does not need to be white; it may keep a calm version of the current reference palette. The upper and side decoration areas must keep the reference image's strongest saturation, contrast, texture depth, and highlight intensity. Match the current reference image's dimensionality: if it is flat 2D, keep it flat and graphic; if it is 3D-rendered, keep the same 3D/rendered language."
     : kind === "bottom"
-      ? "For the bottom sticker, only the upper 20-30% may fade toward white for compositing. The lower decoration area must keep the reference image's strongest saturation, contrast, texture depth, and highlight intensity."
-      : "For the side sticker, only the inner edge may become airy and pale for compositing. The outer decorative edge must keep the reference image's strongest saturation, contrast, texture depth, and highlight intensity.";
+      ? "For the bottom sticker, only the upper 25-32% may fade toward neutral pure white for compositing. The lower decoration area must keep the reference image's strongest saturation, contrast, texture depth, and highlight intensity, but stay lower, steadier, and more restrained than the top sticker."
+      : "For the side sticker, do not force a white fade. Keep only the upper-left corner and top edge decorated. At least 75-88% of the strip must remain quiet, low-contrast, weakly textured, and in the same calm palette family as the current reference. Never fill the left half or the full vertical edge with dense patterns.";
   return [
     basePrompt,
     workflowDocPromptBlock(workflowDoc),
@@ -199,6 +199,9 @@ function buildStickerPrompt(kind, userPrompt, workflowDoc) {
     "Color fidelity lock: do not wash out the whole image. Preserve the reference image's vivid accent colors, material richness, local dark-light contrast, and decorative density in the active ornament area.",
     "Dimensionality lock: match only the current reference image's dimensional style. Do not inherit 3D, bevel, plastic, metallic, volumetric, cinematic, or flat poster traits from any previous generation. If the current reference is flat, stay flat; if the current reference is 3D-rendered, keep a coherent 3D-rendered style across all three stickers.",
     "Fade control: the pale/white transition is only a compositing edge treatment, not a global color grade. Avoid pastelizing, desaturating, flattening, or turning the entire sticker into a single pale color.",
+    "Current-reference isolation: ignore any earlier generation, earlier uploaded image, old palette, old material, or old composition. This request has exactly one visual source: the current reference image.",
+    "Structural white rule: top bottom-edge white and bottom top-edge white must be clean neutral pure white gradients with no lines, texture, color blocks, or subject elements. Side sticker has no required pure-white transition.",
+    "Side restraint rule: the side sticker must read as an auxiliary edge. Decoration may not occupy the left half, lower corner, full-height edge, or most of the strip.",
     fadeZone,
     "",
     userPrompt ? `本轮用户补充要求：${userPrompt}` : "",
@@ -248,6 +251,8 @@ async function requestOpenAIImage({ prompt, size, referenceImage, referenceImage
         body.append("size", editSize || IMAGE_EDIT_SIZE || size);
         if (IMAGE_EDIT_INCLUDE_EXTRAS) {
           body.append("quality", IMAGE_QUALITY);
+        }
+        if (IMAGE_EDIT_INCLUDE_EXTRAS || baseUrl.includes("api.openai.com")) {
           body.append("output_format", outputFormat);
         }
         imageFiles.forEach((imageFile, index) => {
@@ -306,7 +311,9 @@ async function parseOpenAIImageResponse(response) {
   const imageUrl = data?.data?.[0]?.url;
   if (imageUrl) return imageUrl;
   if (!imageBase64) throw new Error("OpenAI did not return image data.");
-  return `data:image/png;base64,${imageBase64}`;
+  const buffer = Buffer.from(imageBase64, "base64");
+  const contentType = sniffImageMime(buffer) || "image/png";
+  return `data:${contentType};base64,${imageBase64}`;
 }
 
 async function imageUrlToDataUrl(imageUrl) {
@@ -467,22 +474,6 @@ async function requestStickerImage(kind, prompt, referenceImage) {
         warning: `${stickerSpecs[kind].zhName} 的原比例图生图失败，已用 ${IMAGE_EDIT_FALLBACK_SIZE} 兼容尺寸生成并裁成贴片比例。`
       };
     }
-  }
-
-  const generationPrompt = [
-    prompt,
-    "",
-    "The image edit gateway returned blank or unusable output for the reference image. Generate a fresh non-blank sticker background from the written style instructions. The result must contain visible decorative texture, color, and composition; never return a blank or nearly white canvas."
-  ].join("\n");
-  const generatedResult = await tryAttempt("text-only generation retry", {
-    referenceImage: "",
-    prompt: generationPrompt
-  });
-  if (generatedResult) {
-    return {
-      image: generatedResult,
-      warning: `${stickerSpecs[kind].zhName} 的图生图不可用，已改用文字描述生成；参考图相似度会降低。`
-    };
   }
 
   throw new Error(failedAttempts.join(" / ") || "Image generation failed");
