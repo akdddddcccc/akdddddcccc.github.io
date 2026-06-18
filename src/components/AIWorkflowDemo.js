@@ -113,9 +113,9 @@
       },
       assets: [
         { key: "text", title: this.lang === "zh" ? "文字图层" : "Text layer", copy: this.lang === "zh" ? "按当前缩放尺寸导出透明 PNG" : "Transparent PNG at current scaled size", ready: true },
-        { key: "top", title: this.lang === "zh" ? "上贴背景" : "Top background", copy: this.lang === "zh" ? "1080 宽 羽化 PNG 图层（透明渐隐边缘）" : "1080 wide feathered PNG layer (transparent fade edge)", ready: true },
+        { key: "top", title: this.lang === "zh" ? "上贴背景" : "Top background", copy: this.lang === "zh" ? "1080 宽，带当前渐隐边缘" : "1080 wide with current fade edge", ready: true },
         { key: "side", title: this.lang === "zh" ? "侧贴背景" : "Side background", copy: this.lang === "zh" ? "按 210 宽置入尺寸导出" : "Exported at 210-wide placed size", ready: false },
-        { key: "bottom", title: this.lang === "zh" ? "下贴背景" : "Bottom background", copy: this.lang === "zh" ? "1080 宽 羽化 PNG 图层（透明渐隐边缘）" : "1080 wide feathered PNG layer (transparent fade edge)", ready: false },
+        { key: "bottom", title: this.lang === "zh" ? "下贴背景" : "Bottom background", copy: this.lang === "zh" ? "1080 宽，带当前渐隐边缘" : "1080 wide with current fade edge", ready: false },
         { key: "composite", title: this.lang === "zh" ? "贴片效果图" : "Composite preview", copy: this.lang === "zh" ? "完整 1080x1920 覆盖效果图" : "Full 1080x1920 overlay render", ready: true }
       ]
     };
@@ -266,11 +266,8 @@
     sideStickerHeight() {
       return this.scaledHeightForWidth(this.stickerOutputSizes.side, this.sideLayer.width);
     },
-    stickerFeatherBlur() {
-      return 72;
-    },
     stickerFadeBleed() {
-      return Math.max(216, this.stickerFeatherBlur * 3);
+      return 180;
     },
     topStickerRenderY() {
       return -this.stickerFadeBleed;
@@ -1223,7 +1220,7 @@
       const path = new Path2D(kind === "top" ? this.topMaskD : this.bottomMaskD);
       maskCtx.save();
       maskCtx.translate(0, -offsetY);
-      maskCtx.filter = `blur(${this.stickerFeatherBlur}px)`;
+      maskCtx.filter = `blur(${kind === "top" ? 42 : 42}px)`;
       maskCtx.fillStyle = "#fff";
       maskCtx.fill(path);
       maskCtx.restore();
@@ -1693,7 +1690,7 @@
               >
                 <defs>
                   <filter id="aiFadeBlur" x="-30%" y="-30%" width="160%" height="160%">
-                    <feGaussianBlur :stdDeviation="stickerFeatherBlur" />
+                    <feGaussianBlur stdDeviation="42" />
                   </filter>
                   <mask id="aiTopStickerMask" maskUnits="userSpaceOnUse" :x="-stickerFadeBleed" :y="-stickerFadeBleed" :width="compositionSize.width + stickerFadeBleed * 2" :height="compositionSize.height + stickerFadeBleed * 2">
                     <rect :x="-stickerFadeBleed" :y="-stickerFadeBleed" :width="compositionSize.width + stickerFadeBleed * 2" :height="compositionSize.height + stickerFadeBleed * 2" fill="black" />
