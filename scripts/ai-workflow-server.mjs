@@ -441,9 +441,23 @@ async function requestCheckedStickerImage(kind, prompt, referenceImage, editSize
     editSize,
     outputFormat: imageOutputFormat()
   });
-  const dataUrl = await imageUrlToDataUrl(image);
+  let dataUrl = "";
+  try {
+    dataUrl = await imageUrlToDataUrl(image);
+  } catch (error) {
+    if (/^https?:\/\//i.test(image)) {
+      return {
+        image,
+        warning: `${stickerSpecs[kind].zhName} 已生成，但服务器无法下载返回的图片 URL（${error.message || "load failed"}），已直接使用远程图片。若后续批量导出失败，请改用官方 API 或让网关返回 base64 图片数据。`
+      };
+    }
+    throw error;
+  }
   assertStickerImageNotBlank(dataUrl, kind);
-  return normalizeStickerImageSize(dataUrl, kind);
+  return {
+    image: normalizeStickerImageSize(dataUrl, kind),
+    warning: ""
+  };
 }
 
 async function requestStickerImage(kind, prompt, referenceImage) {
@@ -463,15 +477,15 @@ async function requestStickerImage(kind, prompt, referenceImage) {
   };
 
   const directResult = await tryAttempt("reference edit");
-  if (directResult) return { image: directResult, warning: "" };
+  if (directResult) return directResult;
 
   const requestedEditSize = IMAGE_EDIT_SIZE || stickerSpecs[kind].size;
   if (USE_IMAGE_EDITS && referenceImage && IMAGE_EDIT_FALLBACK_SIZE && requestedEditSize !== IMAGE_EDIT_FALLBACK_SIZE) {
     const squareResult = await tryAttempt(`reference edit ${IMAGE_EDIT_FALLBACK_SIZE}`, { editSize: IMAGE_EDIT_FALLBACK_SIZE });
     if (squareResult) {
       return {
-        image: squareResult,
-        warning: `${stickerSpecs[kind].zhName} 的原比例图生图失败，已用 ${IMAGE_EDIT_FALLBACK_SIZE} 兼容尺寸生成并裁成贴片比例。`
+        image: squareResult.image,
+        warning: squareResult.warning || `${stickerSpecs[kind].zhName} 的原比例图生图失败，已用 ${IMAGE_EDIT_FALLBACK_SIZE} 兼容尺寸生成并裁成贴片比例。`
       };
     }
   }
