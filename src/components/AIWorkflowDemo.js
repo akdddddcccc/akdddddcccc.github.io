@@ -68,6 +68,7 @@
       textInteraction: null,
       textLayerVisible: true,
       selectedFontStyle: "clean",
+      textColorMode: "auto",
       extractTextStyleFromReference: false,
       textLayerVerified: false,
       stickerOutputs: {
@@ -174,6 +175,11 @@
           fontTwo: "书法张扬体",
           fontRounded: "圆润可爱体",
           fontReferenceMode: "字体参考",
+          textColorModeTitle: "文字配色",
+          textColorAuto: "自动",
+          textColorDark: "深色字",
+          textColorLight: "浅色字",
+          textColorHint: "自动：按上贴背景亮度选择黑底或白底；深色字＝白底深字；浅色字＝黑底浅字。均不使用纯黑。",
           learnReference: "学习参考图",
           waitingUpload: "等待上传截图",
           manualCheckTitle: "文字核对",
@@ -234,6 +240,11 @@
           fontTwo: "Expressive script",
           fontRounded: "Rounded cute",
           fontReferenceMode: "Font reference",
+          textColorModeTitle: "Text color",
+          textColorAuto: "Auto",
+          textColorDark: "Dark text",
+          textColorLight: "Light text",
+          textColorHint: "Auto picks a black or white matte from the top sticker brightness. Dark text = dark on white; light text = light on black. Pure black is never used.",
           learnReference: "Learn reference",
           waitingUpload: "Waiting for screenshot",
           manualCheckTitle: "Text check",
@@ -803,6 +814,7 @@
           copyText: this.copyText,
           promptText: this.textLayerPrompt,
           styleKey: ["reference", "rounded"].includes(this.selectedFontStyle) ? "clean" : this.selectedFontStyle,
+          textColorMode: this.textColorMode,
           fontPresetKey: this.fontPresetKeyForRun(),
           fontReferenceSource: this.selectedFontStyle === "reference" ? "upload" : "preset",
           topStickerImage: this.stickerOutputs.top,
@@ -1628,6 +1640,12 @@
               <button type="button" :class="{ active: selectedFontStyle === 'rounded' }" @click="selectFontStyle('rounded')">{{ labels.fontRounded }}</button>
               <button type="button" :class="{ active: selectedFontStyle === 'reference' }" @click="selectFontStyle('reference')">{{ labels.fontReferenceMode }}</button>
             </div>
+            <div class="ai-workflow-toolrow ai-workflow-toolrow--color" role="group" :aria-label="labels.textColorModeTitle">
+              <button type="button" :class="{ active: textColorMode === 'auto' }" @click="textColorMode = 'auto'">{{ labels.textColorAuto }}</button>
+              <button type="button" :class="{ active: textColorMode === 'dark' }" @click="textColorMode = 'dark'">{{ labels.textColorDark }}</button>
+              <button type="button" :class="{ active: textColorMode === 'light' }" @click="textColorMode = 'light'">{{ labels.textColorLight }}</button>
+            </div>
+            <p class="ai-status-line">{{ labels.textColorHint }}</p>
             <label
               v-if="selectedFontStyle === 'reference'"
               class="ai-workflow-upload ai-workflow-upload--short"
