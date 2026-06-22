@@ -601,12 +601,13 @@ function escapeSvg(value) {
     .replace(/"/g, "&quot;");
 }
 
-function makeTextLayerSvg({ copyText, styleKey, background = "transparent" }) {
+function makeTextLayerSvg({ copyText, styleKey, background = "transparent", textBrightness = "light" }) {
   const text = String(copyText || "").replace(/^例如：\n?|^Example:\n?/i, "").replace(/[“”"]/g, "").trim() || "NOBOOK · 618 狂欢季\n重走真理诞生路";
   const lines = text.split(/\n+/).slice(0, 4);
   const expressive = styleKey === "expressive";
-  const fill = expressive ? "#f7f3e8" : "#ffffff";
-  const stroke = expressive ? "#222719" : "#121212";
+  const dark = textBrightness === "dark";
+  const fill = dark ? "#1d2118" : (expressive ? "#f7f3e8" : "#ffffff");
+  const stroke = dark ? "#f3efe4" : (expressive ? "#222719" : "#121212");
   const fontFamily = expressive
     ? "'Kaiti SC', 'STKaiti', 'Songti SC', 'Noto Serif SC', serif"
     : "'Songti SC', 'STSong', 'Noto Serif SC', 'Source Han Serif SC', serif";
@@ -796,11 +797,41 @@ function isNearWhitePixel(rgba, index, threshold = 236) {
   return min >= threshold && max - min <= 24;
 }
 
-function removeConnectedWhiteBackground(dataUrl) {
+function isNearBlackPixel(rgba, index, threshold = 24) {
+  const red = rgba[index];
+  const green = rgba[index + 1];
+  const blue = rgba[index + 2];
+  const max = Math.max(red, green, blue);
+  const min = Math.min(red, green, blue);
+  return max <= threshold && max - min <= 24;
+}
+
+function isMattePixel(rgba, index, matteMode) {
+  return matteMode === "black"
+    ? isNearBlackPixel(rgba, index)
+    : isNearWhitePixel(rgba, index);
+}
+
+// Feather alpha by distance from the matte color, so anti-aliased glyph edges fade out
+// smoothly instead of leaving a hard halo. White matte fades on darkness; black on brightness.
+function matteFeatherAlpha(rgba, index, matteMode) {
+  if (matteMode === "black") {
+    const maxChannel = Math.max(rgba[index], rgba[index + 1], rgba[index + 2]);
+    return Math.max(0, Math.min(255, Math.round((maxChannel - 8) * 14)));
+  }
+  const minChannel = Math.min(rgba[index], rgba[index + 1], rgba[index + 2]);
+  return Math.max(0, Math.min(255, Math.round((248 - minChannel) * 14)));
+}
+
+// Only the matte region that is connected to the canvas border is removed. Glyph-interior
+// highlights (white inside dark strokes) and interior dark detail (black outline/shadow inside
+// light strokes) are not border-connected, so the flood fill never reaches them and they survive.
+function removeConnectedMatte(dataUrl, matteMode = "white") {
   const parsed = dataUrlToBuffer(dataUrl);
   if (!parsed || parsed.mime !== "image/png") {
-    throw new Error("Local white-background cutout needs a PNG data URL.");
+    throw new Error("Local matte cutout needs a PNG data URL.");
   }
+  const mode = matteMode === "black" ? "black" : "white";
 
   const png = decodePngToRgba(parsed.buffer);
   const { width, height, rgba } = png;
@@ -813,7 +844,7 @@ function removeConnectedWhiteBackground(dataUrl) {
     const pixel = y * width + x;
     if (visited[pixel]) return;
     const index = pixel * 4;
-    if (!isNearWhitePixel(rgba, index)) return;
+    if (!isMattePixel(rgba, index, mode)) return;
     visited[pixel] = 1;
     queue.push(pixel);
   };
@@ -837,20 +868,70 @@ function removeConnectedWhiteBackground(dataUrl) {
     enqueue(x, y - 1);
   }
 
+  const fallbackChannel = mode === "black" ? 0 : 255;
   for (let pixel = 0; pixel < total; pixel += 1) {
     if (!visited[pixel]) continue;
     const index = pixel * 4;
-    const minChannel = Math.min(rgba[index], rgba[index + 1], rgba[index + 2]);
-    const alpha = Math.max(0, Math.min(255, Math.round((248 - minChannel) * 14)));
+    const alpha = matteFeatherAlpha(rgba, index, mode);
     rgba[index + 3] = alpha;
     if (alpha === 0) {
-      rgba[index] = 255;
-      rgba[index + 1] = 255;
-      rgba[index + 2] = 255;
+      rgba[index] = fallbackChannel;
+      rgba[index + 1] = fallbackChannel;
+      rgba[index + 2] = fallbackChannel;
     }
   }
 
   return `data:image/png;base64,${encodeRgbaToPng(png).toString("base64")}`;
+}
+
+// Average decoration luminance of a PNG top sticker, ignoring transparent and near-white fade
+// pixels. Returns 0-255, or null when the image is not locally decodable (e.g. a JPEG sticker).
+function measureDecorationBrightness(dataUrl) {
+  const parsed = parsedImageBuffer(dataUrl);
+  if (!parsed || parsed.mime !== "image/png") return null;
+  let png;
+  try {
+    png = decodePngToRgba(parsed.buffer);
+  } catch {
+    return null;
+  }
+  const { width, height, rgba } = png;
+  const total = width * height;
+  if (!total) return null;
+  let sum = 0;
+  let counted = 0;
+  for (let pixel = 0; pixel < total; pixel += 1) {
+    const index = pixel * 4;
+    if (rgba[index + 3] <= 12) continue;
+    const red = rgba[index];
+    const green = rgba[index + 1];
+    const blue = rgba[index + 2];
+    if (Math.min(red, green, blue) >= 238 && Math.max(red, green, blue) - Math.min(red, green, blue) <= 24) continue;
+    sum += 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+    counted += 1;
+  }
+  if (counted < total * 0.02) return null;
+  return sum / counted;
+}
+
+// Pair the matte color with the planned lettering brightness so the cutout always keys out the
+// correct background: dark text -> white matte, light text -> black matte. In auto mode we read
+// the top sticker brightness when it is locally decodable, otherwise default to dark-on-white.
+function resolveMatte(textColorMode, topStickerImage) {
+  if (textColorMode === "dark") {
+    return { matteMode: "white", matteColor: "#ffffff", textBrightness: "dark", brightnessSource: "forced-dark" };
+  }
+  if (textColorMode === "light") {
+    return { matteMode: "black", matteColor: "#000000", textBrightness: "light", brightnessSource: "forced-light" };
+  }
+  const brightness = measureDecorationBrightness(topStickerImage);
+  if (brightness === null) {
+    return { matteMode: "white", matteColor: "#ffffff", textBrightness: "dark", brightnessSource: "auto-default" };
+  }
+  if (brightness < 128) {
+    return { matteMode: "black", matteColor: "#000000", textBrightness: "light", brightnessSource: "auto-measured" };
+  }
+  return { matteMode: "white", matteColor: "#ffffff", textBrightness: "dark", brightnessSource: "auto-measured" };
 }
 
 async function handleStickerBackgrounds(body) {
@@ -962,28 +1043,33 @@ function normalizeTextColorMode(value) {
   return "auto";
 }
 
-function textColorModePromptLines(textColorMode) {
-  // Shared across all three modes: never emit pure black, always anchor on the step-1 top
-  // sticker contrast, and keep light lettering readable with a darker outline/shadow.
+function textColorModePromptLines(textColorMode, matteMode, textBrightness) {
+  // Shared across all modes: never emit pure black for dark lettering, anchor on the step-1 top
+  // sticker contrast, and keep the lettering distinct from the solid matte it sits on.
   const shared = [
-    "Hard color rule: never fill the main lettering with pure black #000000 or a flat near-#000 blackest tone. Use deep charcoal, warm ink, dark espresso brown, or a very dark neutral with subtle tint instead, so the type keeps depth and never looks like a flat #000 block.",
-    "Authority rule: the step-1 top sticker (Reference image 1) decides the light/dark relationship. Read its real background/ornament brightness (ignoring pure-white fade zones) and keep the lettering's value contrast strong against that, not against the white draft canvas."
+    "Hard color rule: never fill DARK main lettering with pure black #000000 or a flat near-#000 blackest tone. Use deep charcoal, warm ink, dark espresso brown, or a very dark neutral with subtle tint instead, so the type keeps depth and never looks like a flat #000 block.",
+    "Authority rule: the step-1 top sticker (Reference image 1) decides the light/dark relationship. Read its real background/ornament brightness (ignoring pure-white fade zones) and keep the lettering's value contrast strong against that.",
+    matteMode === "black"
+      ? "Matte rule: the background is a flat pure-black matte that will be keyed out. The main lettering must be light (warm white, ivory, pearl) and clearly separated from the black matte. Any dark outline, shadow, or interior texture must sit INSIDE or touching the letters, never as a separate dark patch floating in the matte."
+      : "Matte rule: the background is a flat pure-white matte that will be keyed out. The main lettering must be dark and clearly separated from the white matte. Any white highlight or interior detail must sit INSIDE the letters, never as a separate white patch floating in the matte."
   ];
   if (textColorMode === "dark") {
     return [
       ...shared,
-      "Color mode = DARK lettering (forced): make the main type a deep, rich dark tone (charcoal, ink, espresso) — never pure black. Ensure it stays clearly readable on the white draft and reads as dark relative to the top sticker."
+      "Color mode = DARK lettering (forced) on a white matte: make the main type a deep, rich dark tone (charcoal, ink, espresso) — never pure black. It must read clearly dark against the white matte and dark relative to the top sticker."
     ];
   }
   if (textColorMode === "light") {
     return [
       ...shared,
-      "Color mode = LIGHT lettering (forced): make the main type a warm white, ivory, or pearl light neutral. Because light type would vanish on the white draft, it MUST carry a darker outline, edge, or drop shadow (deep charcoal/ink, not pure black) so the white-background cutout preserves every stroke and the letters stay readable."
+      "Color mode = LIGHT lettering (forced) on a black matte: make the main type a warm white, ivory, or pearl light neutral so it stands out against the pure-black matte. Add a subtle darker inner edge or shadow only if it stays attached to the strokes; do not place loose dark shapes in the matte."
     ];
   }
   return [
     ...shared,
-    "Color mode = AUTO: apply the contrast-first decision using the step-1 top sticker. If the top sticker reads light/airy, use deep dark (not pure black) lettering; if it reads dark/saturated, use light/ivory lettering with a darker readable outline or shadow. Always avoid pure black."
+    textBrightness === "light"
+      ? "Color mode = AUTO resolved to LIGHT lettering on a black matte (the top sticker reads dark/saturated): use warm white/ivory lettering that stands out against the pure-black matte."
+      : "Color mode = AUTO resolved to DARK lettering on a white matte (the top sticker reads light/airy): use deep dark (not pure black) lettering that stands out against the pure-white matte."
   ];
 }
 
@@ -998,17 +1084,23 @@ async function handleTextLayer(body) {
   const fontReferenceImage = TEXT_LAYER_USE_FONT_REFERENCE ? (body.fontReferenceImage || "") : "";
   const sourceTypographyReferenceImage = TEXT_LAYER_USE_SOURCE_REFERENCE ? (body.sourceTypographyReferenceImage || "") : "";
   const referenceImages = [topStickerImage, fontReferenceImage, sourceTypographyReferenceImage].filter(Boolean);
+  const { matteMode, matteColor, textBrightness, brightnessSource } = resolveMatte(textColorMode, topStickerImage);
+  const matteName = matteMode === "black" ? "pure black #000000" : "pure white #ffffff";
   const debug = {
     topStickerAttached: Boolean(topStickerImage),
     fontReferenceAttached: Boolean(fontReferenceImage),
     sourceTypographyReferenceAttached: Boolean(sourceTypographyReferenceImage),
     referenceImageCount: referenceImages.length,
     fontReferenceSource,
-    textColorMode
+    textColorMode,
+    matteMode,
+    matteColor,
+    textBrightness,
+    brightnessSource
   };
   const prompt = [
-    "Generate a standalone livestream typography asset on a strict pure white #ffffff background.",
-    "The final image must be a clean white-background typography design draft, not a transparent image.",
+    `Generate a standalone livestream typography asset on a strict ${matteName} background (a flat solid matte fill).`,
+    `The final image must be a clean ${matteMode === "black" ? "black" : "white"}-background typography design draft, not a transparent image. Fill the entire background edge to edge with the flat matte color so it can be keyed out cleanly.`,
     "Do not composite onto any reference image or recreate any reference background.",
     topStickerImage
       ? "Reference image 1 is the generated top sticker. It is the primary visual source for material feeling, brightness contrast, and small decorative accents around or attached to letters. Do not blindly copy its main palette into the main letter fill."
@@ -1026,14 +1118,12 @@ async function handleTextLayer(body) {
       : "",
     "The top sticker reference always wins for material direction and small surrounding decorative elements.",
     "Palette isolation: the original uploaded source image and any typography reference must never affect lettering color. They may not introduce old colors, previous palettes, background tones, product colors, or scene lighting into the new text layer.",
-    "Contrast-first color adaptation: first judge whether the usable top-sticker background/ornament area is light or dark, ignoring pure white fade zones. If the top sticker reads light, pale, airy, or white-heavy, the main lettering fill must be deep charcoal, near-black, ink black, or another very dark neutral. If the top sticker reads dark, saturated, or heavy, the main lettering fill must be warm white, ivory, pearl, or another very light neutral.",
     "This light/dark decision controls only color and small decorative elements, not the letterform route, font structure, copy, layout hierarchy, or stroke style.",
     "Use Reference image 1/top sticker colors only for tiny accent strokes, sparkles, outlines, edge glints, shadows, or small attached ornaments. Do not use top-sticker accent colors as the dominant main letter fill when they reduce contrast.",
     "Color lock: choose lettering fill from the contrast-first dark/bright neutral rule above. Choose outline, shadow, highlights, edge effects, and small accent strokes from Reference image 1/top sticker only when they help readability and local harmony. Never borrow the color palette from a font reference or typography preset.",
     "Letterform lock: the selected typography route controls silhouette, stroke structure, serif/brush/rounded character, and spacing. The top sticker reference must not collapse different typography routes into the same font style.",
     "The optional font reference never decides the background, global color, large ornaments, or non-text visual content.",
     "Do not recreate large color blocks, ribbons, watercolor backgrounds, geometric networks, poster scenes, people, products, logos, QR codes, labels, captions, slogans, signatures, or watermarks.",
-    "Before rendering, explicitly apply the contrast decision: light top sticker -> dark/black typography; dark top sticker -> light/white typography. Keep the decorative color details secondary.",
     "必须逐字保留以下原文案，不增删、不翻译、不改写，保留换行结构：",
     copyText,
     styleKey === "expressive"
@@ -1048,23 +1138,27 @@ async function handleTextLayer(body) {
     fontPresetKey === "rounded-cute"
       ? "Typography preset: rounded cute sticker lettering. Use bubbly, thick, soft-cornered, playful, high-readability title shapes, friendly inflated strokes, round terminals, and compact launch-poster hierarchy. It must look clearly different from Songti serif and brush calligraphy. This preset controls letter shape only; do not use the preset sample's orange, navy, cyan, or red palette unless those colors already appear in Reference image 1."
       : "",
-    ...textColorModePromptLines(textColorMode),
-    "If the lettering is light on the white draft, add a darker outline or shadow so the white-background cutout will not erase highlights.",
+    ...textColorModePromptLines(textColorMode, matteMode, textBrightness),
+    matteMode === "black"
+      ? "Edge rule: keep every glyph stroke, serif, and accent fully readable against the black matte; do not let dark strokes blend into the matte."
+      : "Edge rule: keep every glyph stroke, serif, and accent fully readable against the white matte; if any light highlight sits inside a letter, keep a darker edge around it so the cutout will not erase it.",
     "Keep the brand line smaller and clean. Make the main title dominant. The middle dot `·` must stay accurate.",
     "Complex Chinese characters, especially `诞` and `路`, must stay structurally correct and readable.",
     body.promptText ? `用户补充要求：${body.promptText}` : ""
   ].filter(Boolean).join("\n");
 
-  const fallbackTransparent = makeTextLayerSvg({ copyText, styleKey });
-  const fallbackWhiteDraft = makeTextLayerSvg({ copyText, styleKey, background: "#ffffff" });
+  const fallbackTransparent = makeTextLayerSvg({ copyText, styleKey, textBrightness });
+  const fallbackMatteDraft = makeTextLayerSvg({ copyText, styleKey, background: matteColor, textBrightness });
 
   if (!openAIKey() || !TEXT_LAYER_USE_API) {
     return {
       ok: true,
       generated: false,
       openAIRequestOk: false,
+      matteMode,
+      matteColor,
       assets: {
-        whiteDraft: fallbackWhiteDraft,
+        whiteDraft: fallbackMatteDraft,
         transparent: fallbackTransparent
       },
       styleKey,
@@ -1107,17 +1201,20 @@ async function handleTextLayer(body) {
     let cutoutOk = false;
     let cutoutError = "";
     try {
-      transparent = removeConnectedWhiteBackground(whiteDraft);
+      transparent = removeConnectedMatte(whiteDraft, matteMode);
       cutoutOk = true;
     } catch (error) {
       cutoutError = error.message || "Local cutout failed";
     }
 
+    const matteLabel = matteMode === "black" ? "黑底" : "白底";
     return {
       ok: true,
       generated: true,
       openAIRequestOk: true,
       cutoutOk,
+      matteMode,
+      matteColor,
       assets: {
         whiteDraft,
         transparent
@@ -1132,17 +1229,19 @@ async function handleTextLayer(body) {
       error: cutoutError || referenceFallback,
       message: cutoutOk
         ? (referenceFallback
-          ? "白底字体稿已生成，并已本地扣白底为透明 PNG。可选文字参考图未被网关接受，本次已退回只以上贴图为参考；请检查文字是否完全正确。"
-          : "白底字体稿已生成，并已本地扣白底为透明 PNG。请检查文字是否完全正确。")
-        : `白底字体稿已生成，但本地扣白底失败，已回退 SVG 透明稿：${cutoutError}`
+          ? `${matteLabel}字体稿已生成，并已本地扣${matteLabel}为透明 PNG。可选文字参考图未被网关接受，本次已退回只以上贴图为参考；请检查文字是否完全正确。`
+          : `${matteLabel}字体稿已生成，并已本地扣${matteLabel}为透明 PNG。请检查文字是否完全正确。`)
+        : `${matteLabel}字体稿已生成，但本地扣${matteLabel}失败，已回退 SVG 透明稿：${cutoutError}`
     };
   } catch (error) {
     return {
       ok: true,
       generated: false,
       openAIRequestOk: false,
+      matteMode,
+      matteColor,
       assets: {
-        whiteDraft: fallbackWhiteDraft,
+        whiteDraft: fallbackMatteDraft,
         transparent: fallbackTransparent
       },
       styleKey,
@@ -1237,7 +1336,16 @@ async function route(request, response) {
   }
 }
 
-export { handleStickerBackgrounds, handleTextLayer, route, workflowStatus };
+export {
+  handleStickerBackgrounds,
+  handleTextLayer,
+  route,
+  workflowStatus,
+  removeConnectedMatte,
+  resolveMatte,
+  encodeRgbaToPng,
+  decodePngToRgba
+};
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   createServer(route).listen(PORT, "127.0.0.1", () => {
