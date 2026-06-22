@@ -9,7 +9,7 @@ const OPENAI_BASE_URL = (process.env.OPENAI_BASE_URL || "https://api.openai.com/
 const OPENAI_PROVIDER_LABEL = process.env.OPENAI_PROVIDER_LABEL || (OPENAI_BASE_URL.includes("api.openai.com") ? "OpenAI official" : "Custom OpenAI-compatible API");
 const IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || "gpt-image-2";
 const IMAGE_QUALITY = process.env.OPENAI_IMAGE_QUALITY || "low";
-const IMAGE_OUTPUT_FORMAT = process.env.OPENAI_IMAGE_OUTPUT_FORMAT || "png";
+const IMAGE_OUTPUT_FORMAT = process.env.OPENAI_IMAGE_OUTPUT_FORMAT || "jpeg";
 const TEXT_LAYER_OUTPUT_FORMAT = process.env.OPENAI_TEXT_LAYER_OUTPUT_FORMAT || "png";
 const USE_IMAGE_EDITS = process.env.OPENAI_IMAGE_USE_EDITS === "1";
 const IMAGE_TIMEOUT_MS = Number(process.env.OPENAI_IMAGE_TIMEOUT_MS || 90000);
@@ -46,7 +46,24 @@ function imageOutputFormat() {
 }
 
 function textLayerOutputFormat() {
-  return normalizeOutputFormat(process.env.OPENAI_TEXT_LAYER_OUTPUT_FORMAT || TEXT_LAYER_OUTPUT_FORMAT, "png");
+  // The text white-draft and its local transparent cutout must always be PNG: the cutout
+  // decoder (decodePngToRgba) is PNG-only, and a JPEG draft would break the alpha extraction.
+  return "png";
+}
+
+function detectImageProvider() {
+  const baseUrl = openAIBaseUrl();
+  if (baseUrl.includes("api.openai.com")) return "openai";
+  if (baseUrl.includes("api.ofox.io")) return "ofox";
+  return "compatible";
+}
+
+function mimeForFormat(format) {
+  const normalized = String(format || "").trim().toLowerCase();
+  if (normalized === "jpeg" || normalized === "jpg") return "image/jpeg";
+  if (normalized === "webp") return "image/webp";
+  if (normalized === "png") return "image/png";
+  return "";
 }
 
 const stickerSpecs = {
@@ -232,8 +249,32 @@ function dataUrlToUploadFile(dataUrl, index) {
   return blob;
 }
 
+// Decide which image-output parameters each provider can safely receive.
+// Official OpenAI (gpt-image-*) accepts output_format + quality on both generations and edits.
+// The OFOX Adapter accepts output_format (so we can ask for jpeg) but is finicky about extra
+// fields on edits, so quality stays gated behind IMAGE_EDIT_INCLUDE_EXTRAS there.
+// Other OpenAI-compatible gateways keep the previous conservative behavior.
+function imageRequestParams({ provider, outputFormat, isEdit }) {
+  if (provider === "openai") {
+    return { sendOutputFormat: true, sendQuality: true };
+  }
+  if (provider === "ofox") {
+    return {
+      sendOutputFormat: true,
+      sendQuality: isEdit ? IMAGE_EDIT_INCLUDE_EXTRAS : true
+    };
+  }
+  // Generic compatible gateway: generations historically always sent both params; edits
+  // only sent them when extras were explicitly enabled.
+  return {
+    sendOutputFormat: isEdit ? IMAGE_EDIT_INCLUDE_EXTRAS : true,
+    sendQuality: isEdit ? IMAGE_EDIT_INCLUDE_EXTRAS : true
+  };
+}
+
 async function requestOpenAIImage({ prompt, size, referenceImage, referenceImages, editSize, outputFormat = imageOutputFormat() }) {
   const baseUrl = openAIBaseUrl();
+  const provider = detectImageProvider();
   const headers = { Authorization: `Bearer ${openAIKey()}` };
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), IMAGE_TIMEOUT_MS);
@@ -245,14 +286,15 @@ async function requestOpenAIImage({ prompt, size, referenceImage, referenceImage
     if (USE_IMAGE_EDITS && inputImages.length) {
       const imageFiles = inputImages.map((image, index) => dataUrlToUploadFile(image, index)).filter(Boolean);
       if (imageFiles.length) {
+        const params = imageRequestParams({ provider, outputFormat, isEdit: true });
         const body = new FormData();
         body.append("model", IMAGE_MODEL);
         body.append("prompt", prompt);
         body.append("size", editSize || IMAGE_EDIT_SIZE || size);
-        if (IMAGE_EDIT_INCLUDE_EXTRAS) {
+        if (params.sendQuality) {
           body.append("quality", IMAGE_QUALITY);
         }
-        if (IMAGE_EDIT_INCLUDE_EXTRAS || baseUrl.includes("api.openai.com")) {
+        if (params.sendOutputFormat) {
           body.append("output_format", outputFormat);
         }
         imageFiles.forEach((imageFile, index) => {
@@ -264,29 +306,33 @@ async function requestOpenAIImage({ prompt, size, referenceImage, referenceImage
           body,
           signal: controller.signal
         });
-        return parseOpenAIImageResponse(response);
+        return parseOpenAIImageResponse(response, outputFormat);
       }
     }
 
+    const params = imageRequestParams({ provider, outputFormat, isEdit: false });
+    const generationBody = {
+      model: IMAGE_MODEL,
+      prompt,
+      size
+    };
+    if (params.sendQuality) generationBody.quality = IMAGE_QUALITY;
+    if (params.sendOutputFormat) generationBody.output_format = outputFormat;
     const response = await fetch(`${baseUrl}/images/generations`, {
       method: "POST",
       headers: {
         ...headers,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({
-        model: IMAGE_MODEL,
-        prompt,
-        size,
-        quality: IMAGE_QUALITY,
-        output_format: outputFormat
-      }),
+      body: JSON.stringify(generationBody),
       signal: controller.signal
     });
-    return parseOpenAIImageResponse(response);
+    return parseOpenAIImageResponse(response, outputFormat);
   } catch (error) {
     if (error?.name === "AbortError") {
-      throw new Error(`Image request timed out after ${Math.round(IMAGE_TIMEOUT_MS / 1000)}s`);
+      const timeoutError = new Error(`Image request timed out after ${Math.round(IMAGE_TIMEOUT_MS / 1000)}s`);
+      timeoutError.isTimeout = true;
+      throw timeoutError;
     }
     throw error;
   } finally {
@@ -294,7 +340,7 @@ async function requestOpenAIImage({ prompt, size, referenceImage, referenceImage
   }
 }
 
-async function parseOpenAIImageResponse(response) {
+async function parseOpenAIImageResponse(response, requestedFormat) {
   const text = await response.text();
   let data = {};
   try {
@@ -312,7 +358,9 @@ async function parseOpenAIImageResponse(response) {
   if (imageUrl) return imageUrl;
   if (!imageBase64) throw new Error("OpenAI did not return image data.");
   const buffer = Buffer.from(imageBase64, "base64");
-  const contentType = sniffImageMime(buffer) || "image/png";
+  // Trust the actual bytes first; only fall back to the format we asked for, then PNG.
+  // Never blindly stamp PNG onto JPEG payloads.
+  const contentType = sniffImageMime(buffer) || mimeForFormat(requestedFormat) || "image/png";
   return `data:${contentType};base64,${imageBase64}`;
 }
 
@@ -433,14 +481,32 @@ function normalizeStickerImageSize(dataUrl, kind) {
   return `data:image/png;base64,${encodeRgbaToPng(normalized).toString("base64")}`;
 }
 
+async function requestStickerImageWithFormatFallback(kind, prompt, referenceImage, editSize) {
+  // Background stickers prefer JPEG, but some gateways reject output_format=jpeg.
+  // Fall back to PNG instead of failing the whole round. A timeout is not a format
+  // problem, so we do not retry on timeouts.
+  const preferred = imageOutputFormat();
+  const formats = preferred === "png" ? ["png"] : [preferred, "png"];
+  let lastError = null;
+  for (const outputFormat of formats) {
+    try {
+      return await requestOpenAIImage({
+        prompt,
+        size: stickerSpecs[kind].size,
+        referenceImage,
+        editSize,
+        outputFormat
+      });
+    } catch (error) {
+      lastError = error;
+      if (error?.isTimeout) throw error;
+    }
+  }
+  throw lastError || new Error("Image generation failed");
+}
+
 async function requestCheckedStickerImage(kind, prompt, referenceImage, editSize) {
-  const image = await requestOpenAIImage({
-    prompt,
-    size: stickerSpecs[kind].size,
-    referenceImage,
-    editSize,
-    outputFormat: imageOutputFormat()
-  });
+  const image = await requestStickerImageWithFormatFallback(kind, prompt, referenceImage, editSize);
   let dataUrl = "";
   try {
     dataUrl = await imageUrlToDataUrl(image);
@@ -889,8 +955,41 @@ async function handleStickerBackgrounds(body) {
   };
 }
 
+function normalizeTextColorMode(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (["dark", "deep", "深", "深色"].includes(normalized)) return "dark";
+  if (["light", "pale", "浅", "浅色"].includes(normalized)) return "light";
+  return "auto";
+}
+
+function textColorModePromptLines(textColorMode) {
+  // Shared across all three modes: never emit pure black, always anchor on the step-1 top
+  // sticker contrast, and keep light lettering readable with a darker outline/shadow.
+  const shared = [
+    "Hard color rule: never fill the main lettering with pure black #000000 or a flat near-#000 blackest tone. Use deep charcoal, warm ink, dark espresso brown, or a very dark neutral with subtle tint instead, so the type keeps depth and never looks like a flat #000 block.",
+    "Authority rule: the step-1 top sticker (Reference image 1) decides the light/dark relationship. Read its real background/ornament brightness (ignoring pure-white fade zones) and keep the lettering's value contrast strong against that, not against the white draft canvas."
+  ];
+  if (textColorMode === "dark") {
+    return [
+      ...shared,
+      "Color mode = DARK lettering (forced): make the main type a deep, rich dark tone (charcoal, ink, espresso) — never pure black. Ensure it stays clearly readable on the white draft and reads as dark relative to the top sticker."
+    ];
+  }
+  if (textColorMode === "light") {
+    return [
+      ...shared,
+      "Color mode = LIGHT lettering (forced): make the main type a warm white, ivory, or pearl light neutral. Because light type would vanish on the white draft, it MUST carry a darker outline, edge, or drop shadow (deep charcoal/ink, not pure black) so the white-background cutout preserves every stroke and the letters stay readable."
+    ];
+  }
+  return [
+    ...shared,
+    "Color mode = AUTO: apply the contrast-first decision using the step-1 top sticker. If the top sticker reads light/airy, use deep dark (not pure black) lettering; if it reads dark/saturated, use light/ivory lettering with a darker readable outline or shadow. Always avoid pure black."
+  ];
+}
+
 async function handleTextLayer(body) {
   const styleKey = body.styleKey === "expressive" ? "expressive" : "clean";
+  const textColorMode = normalizeTextColorMode(body.textColorMode);
   const fontPresetKeys = new Set(["elegant-songti", "expressive-calligraphy", "rounded-cute"]);
   const fontPresetKey = fontPresetKeys.has(body.fontPresetKey) ? body.fontPresetKey : "";
   const fontReferenceSource = body.fontReferenceSource === "preset" ? "preset" : "upload";
@@ -904,7 +1003,8 @@ async function handleTextLayer(body) {
     fontReferenceAttached: Boolean(fontReferenceImage),
     sourceTypographyReferenceAttached: Boolean(sourceTypographyReferenceImage),
     referenceImageCount: referenceImages.length,
-    fontReferenceSource
+    fontReferenceSource,
+    textColorMode
   };
   const prompt = [
     "Generate a standalone livestream typography asset on a strict pure white #ffffff background.",
@@ -948,6 +1048,7 @@ async function handleTextLayer(body) {
     fontPresetKey === "rounded-cute"
       ? "Typography preset: rounded cute sticker lettering. Use bubbly, thick, soft-cornered, playful, high-readability title shapes, friendly inflated strokes, round terminals, and compact launch-poster hierarchy. It must look clearly different from Songti serif and brush calligraphy. This preset controls letter shape only; do not use the preset sample's orange, navy, cyan, or red palette unless those colors already appear in Reference image 1."
       : "",
+    ...textColorModePromptLines(textColorMode),
     "If the lettering is light on the white draft, add a darker outline or shadow so the white-background cutout will not erase highlights.",
     "Keep the brand line smaller and clean. Make the main title dominant. The middle dot `·` must stay accurate.",
     "Complex Chinese characters, especially `诞` and `路`, must stay structurally correct and readable.",
