@@ -10,7 +10,6 @@ const entries = [
   "images",
   "pdf",
   "vendor",
-  "CNAME",
   "favicon.svg",
   "prism.css",
   "prism.js"
