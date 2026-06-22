@@ -165,6 +165,7 @@
           exportTitle: "图层清单 批量导出",
           exportAll: "批量导出",
           downloadOriginal: "下载原图",
+          regenerate: "重生",
           localDraft: "本地草稿",
           realGenerated: "真实生成",
           serviceOffline: "本地生成服务未启动",
@@ -224,6 +225,7 @@
           exportTitle: "Layer list Batch export",
           exportAll: "Batch export",
           downloadOriginal: "Download original",
+          regenerate: "Regenerate",
           localDraft: "Local draft",
           realGenerated: "Generated",
           serviceOffline: "Local generation server is offline",
@@ -538,7 +540,10 @@
       this.fontReferenceUrl = this.fontReferenceObjectUrl;
       this.fontReferenceName = file.name || fallbackName;
       this.fontReferenceDataUrl = await this.fileToDataUrl(file);
-      this.statusText = this.lang === "zh" ? "字体参考图已载入" : "Font reference loaded";
+      this.selectedFontStyle = "reference";
+      this.statusText = this.lang === "zh"
+        ? "字体参考图已载入，本次文字生成会使用上传图作为字形参考"
+        : "Font reference loaded. The uploaded image will be used for letterform reference.";
     },
     async loadLiveRoom(event) {
       const file = event.target.files?.[0];
@@ -596,6 +601,19 @@
       };
       return keys[this.selectedFontStyle] || "";
     },
+    stickerGenerationOrder() {
+      return ["top", "bottom", "side"];
+    },
+    stickerKindLabels() {
+      return {
+        top: this.lang === "zh" ? "上贴" : "top sticker",
+        bottom: this.lang === "zh" ? "下贴" : "bottom sticker",
+        side: this.lang === "zh" ? "侧贴" : "side sticker"
+      };
+    },
+    isStickerGenerationRunning() {
+      return this.runningStep === "sticker-bg" || this.runningStep.startsWith("sticker-bg-");
+    },
     async imageUrlToDataUrl(url) {
       const response = await fetch(url);
       if (!response.ok) throw new Error(`Font preset image not found: ${url}`);
@@ -648,15 +666,11 @@
       }
       this.runningStep = "sticker-bg";
       this.statusText = this.lang === "zh"
-        ? "正在按套组顺序生成上贴、侧贴、下贴，每张会单独请求以避免云端超时..."
+        ? "正在按套组顺序生成上贴、下贴、侧贴，每张会单独请求以避免云端超时..."
         : "Generating the sticker set one by one to avoid cloud timeouts...";
       try {
-        const kinds = ["top", "side", "bottom"];
-        const kindLabels = {
-          top: this.lang === "zh" ? "上贴" : "top sticker",
-          side: this.lang === "zh" ? "侧贴" : "side sticker",
-          bottom: this.lang === "zh" ? "下贴" : "bottom sticker"
-        };
+        const kinds = this.stickerGenerationOrder();
+        const kindLabels = this.stickerKindLabels();
         const allErrors = {};
         const allWarnings = {};
         let allGenerated = true;
@@ -721,6 +735,54 @@
         this.runningStep = "";
       }
     },
+    async regenerateStickerBackground(kind) {
+      this.setUploadTarget("reference");
+      if (!this.referenceDataUrl) {
+        this.statusText = this.lang === "zh"
+          ? "请先在第一栏上传或粘贴参考图。"
+          : "Upload or paste a reference image in step 1 first.";
+        return;
+      }
+      const labels = this.stickerKindLabels();
+      this.runningStep = `sticker-bg-${kind}`;
+      this.statusText = this.lang === "zh"
+        ? `正在单独重生${labels[kind]}...`
+        : `Regenerating ${labels[kind]}...`;
+      try {
+        const data = await this.postWorkflow("/api/ai-workflow/sticker-backgrounds", {
+          lang: this.lang,
+          kind,
+          promptText: this.promptText,
+          referenceImage: this.referenceDataUrl
+        });
+        this.stickerOutputs = {
+          ...this.stickerOutputs,
+          [kind]: data.assets?.[kind] || ""
+        };
+        this.stickerPrompts = {
+          ...this.stickerPrompts,
+          [kind]: data.prompts?.[kind] || ""
+        };
+        const warning = data.warnings?.[kind] || "";
+        const error = data.errors?.[kind] || "";
+        this.statusText = data.generated && !error
+          ? [
+            this.lang === "zh" ? `${labels[kind]}已重新生成` : `${labels[kind]} regenerated`,
+            warning
+          ].filter(Boolean).join(" / ")
+          : [
+            this.lang === "zh" ? `${labels[kind]}重生失败，已回退成本地草稿。` : `${labels[kind]} failed and fell back to a local draft.`,
+            warning,
+            error
+          ].filter(Boolean).join(" / ");
+      } catch (error) {
+        this.statusText = this.lang === "zh"
+          ? `${labels[kind]}重生失败：${error.message}`
+          : `${labels[kind]} regeneration failed: ${error.message}`;
+      } finally {
+        this.runningStep = "";
+      }
+    },
     async runTextLayer() {
       if (!this.stickerOutputs.top) {
         this.statusText = this.labels.textNeedsTop;
@@ -730,6 +792,12 @@
       this.statusText = this.labels.running;
       try {
         const fontReferenceImage = await this.fontReferenceImageForRun();
+        if (this.selectedFontStyle === "reference" && !fontReferenceImage) {
+          this.statusText = this.lang === "zh"
+            ? "请先上传字体参考图，或切换为预设字体风格。"
+            : "Upload a font reference first, or switch to a preset typography style.";
+          return;
+        }
         const data = await this.postWorkflow("/api/ai-workflow/text-layer", {
           lang: this.lang,
           copyText: this.copyText,
@@ -748,7 +816,12 @@
         this.textLayerPromptBuilt = data.prompt || "";
         this.textLayerVerified = false;
         this.assets[0].ready = true;
-        this.statusText = data.message;
+        const referenceNote = data.debug?.fontReferenceAttached
+          ? (data.debug.fontReferenceSource === "upload"
+            ? (this.lang === "zh" ? "已附带上传字体参考图" : "uploaded font reference attached")
+            : (this.lang === "zh" ? "已附带内置字体参考" : "preset font reference attached"))
+          : "";
+        this.statusText = [data.message, referenceNote].filter(Boolean).join(" / ");
         this.placeTextLayer(false);
       } catch (error) {
         this.statusText = this.lang === "zh"
@@ -1205,31 +1278,42 @@
       const source = this.stickerOutputs[kind];
       if (!source) return null;
       const height = kind === "top" ? this.topStickerHeight : this.bottomStickerHeight;
-      const offsetY = kind === "top" ? 0 : this.bottomStickerY;
-      const image = await this.loadImageSource(source);
+      const y = kind === "top" ? 0 : this.bottomStickerY;
+      const maskId = kind === "top" ? "aiTopStickerExportMask" : "aiBottomStickerExportMask";
+      const maskD = kind === "top" ? this.topMaskD : this.bottomMaskD;
+      const preserveAspectRatio = kind === "top" ? "xMidYMin meet" : "xMidYMax meet";
+      const fullCanvas = this.createRenderCanvas(this.compositionSize.width, this.compositionSize.height);
+      const fullCtx = fullCanvas.getContext("2d");
+      const svg = [
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${this.compositionSize.width}" height="${this.compositionSize.height}" viewBox="0 0 ${this.compositionSize.width} ${this.compositionSize.height}">`,
+        "<defs>",
+        '<filter id="aiFadeBlur" x="-30%" y="-30%" width="160%" height="160%">',
+        '<feGaussianBlur stdDeviation="42" />',
+        "</filter>",
+        `<mask id="${maskId}" maskUnits="userSpaceOnUse" x="${-this.stickerFadeBleed}" y="${-this.stickerFadeBleed}" width="${this.compositionSize.width + this.stickerFadeBleed * 2}" height="${this.compositionSize.height + this.stickerFadeBleed * 2}">`,
+        `<rect x="${-this.stickerFadeBleed}" y="${-this.stickerFadeBleed}" width="${this.compositionSize.width + this.stickerFadeBleed * 2}" height="${this.compositionSize.height + this.stickerFadeBleed * 2}" fill="black" />`,
+        `<path d="${this.escapeSvgAttr(maskD)}" fill="white" filter="url(#aiFadeBlur)" />`,
+        "</mask>",
+        "</defs>",
+        `<image href="${this.escapeSvgAttr(source)}" x="0" y="${y}" width="${this.compositionSize.width}" height="${height}" preserveAspectRatio="${preserveAspectRatio}" mask="url(#${maskId})" />`,
+        "</svg>"
+      ].join("");
+      const image = await this.loadImageSource(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`);
+      fullCtx.clearRect(0, 0, fullCanvas.width, fullCanvas.height);
+      fullCtx.drawImage(image, 0, 0, fullCanvas.width, fullCanvas.height);
+
       const canvas = this.createRenderCanvas(this.compositionSize.width, height);
       const ctx = canvas.getContext("2d");
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-      this.applyStickerMask(canvas, kind, offsetY);
+      ctx.drawImage(fullCanvas, 0, y, canvas.width, height, 0, 0, canvas.width, height);
       return canvas;
     },
-    applyStickerMask(canvas, kind, offsetY = 0) {
-      const mask = this.createRenderCanvas(canvas.width, canvas.height);
-      const maskCtx = mask.getContext("2d");
-      const path = new Path2D(kind === "top" ? this.topMaskD : this.bottomMaskD);
-      maskCtx.save();
-      maskCtx.translate(0, -offsetY);
-      maskCtx.filter = `blur(${kind === "top" ? 42 : 42}px)`;
-      maskCtx.fillStyle = "#fff";
-      maskCtx.fill(path);
-      maskCtx.restore();
-
-      const ctx = canvas.getContext("2d");
-      ctx.save();
-      ctx.globalCompositeOperation = "destination-in";
-      ctx.drawImage(mask, 0, 0);
-      ctx.restore();
+    escapeSvgAttr(value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/"/g, "&quot;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
     },
     async renderTextLayerPng() {
       const canvas = this.createRenderCanvas(this.textLayer.width, this.textLayer.height);
@@ -1476,7 +1560,7 @@
               <span>{{ labels.prompt }}</span>
               <textarea v-model="promptText" rows="3" :placeholder="labels.promptPlaceholder"></textarea>
             </label>
-            <button type="button" class="ai-workflow-button" :disabled="runningStep === 'sticker-bg'" @click="runStickerBackgrounds">
+            <button type="button" class="ai-workflow-button" :disabled="isStickerGenerationRunning()" @click="runStickerBackgrounds">
               {{ runningStep === "sticker-bg" ? labels.running : labels.run }}
             </button>
           </div>
@@ -1492,16 +1576,19 @@
               <div class="ai-sticker-piece ai-sticker-piece--top" :style="stickerPieceStyle('top')">
                 <img v-if="stickerOutputs.top" :src="stickerOutputs.top" alt="Top sticker background" @load="recordStickerOutputSize('top', $event)" />
                 <span>{{ labels.topBg }}</span>
+                <button type="button" class="ai-regenerate-sticker" :disabled="isStickerGenerationRunning()" @click.stop="regenerateStickerBackground('top')">{{ runningStep === "sticker-bg-top" ? labels.running : labels.regenerate }}</button>
                 <button v-if="stickerOutputs.top" type="button" class="ai-download-original" @click.stop="downloadGeneratedImage(stickerOutputs.top, stickerDownloadName('top'))">{{ labels.downloadOriginal }}</button>
               </div>
               <div class="ai-sticker-piece ai-sticker-piece--side" :style="stickerPieceStyle('side')">
                 <img v-if="stickerOutputs.side" :src="stickerOutputs.side" alt="Side sticker background" @load="recordStickerOutputSize('side', $event)" />
                 <span>{{ labels.sideBg }}</span>
+                <button type="button" class="ai-regenerate-sticker" :disabled="isStickerGenerationRunning()" @click.stop="regenerateStickerBackground('side')">{{ runningStep === "sticker-bg-side" ? labels.running : labels.regenerate }}</button>
                 <button v-if="stickerOutputs.side" type="button" class="ai-download-original" @click.stop="downloadGeneratedImage(stickerOutputs.side, stickerDownloadName('side'))">{{ labels.downloadOriginal }}</button>
               </div>
               <div class="ai-sticker-piece ai-sticker-piece--bottom" :style="stickerPieceStyle('bottom')">
                 <img v-if="stickerOutputs.bottom" :src="stickerOutputs.bottom" alt="Bottom sticker background" @load="recordStickerOutputSize('bottom', $event)" />
                 <span>{{ labels.bottomBg }}</span>
+                <button type="button" class="ai-regenerate-sticker" :disabled="isStickerGenerationRunning()" @click.stop="regenerateStickerBackground('bottom')">{{ runningStep === "sticker-bg-bottom" ? labels.running : labels.regenerate }}</button>
                 <button v-if="stickerOutputs.bottom" type="button" class="ai-download-original" @click.stop="downloadGeneratedImage(stickerOutputs.bottom, stickerDownloadName('bottom'))">{{ labels.downloadOriginal }}</button>
               </div>
               <div

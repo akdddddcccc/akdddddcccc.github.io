@@ -1304,6 +1304,30 @@ a {
   background: #0b0b0f;
 }
 
+.ai-regenerate-sticker {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  z-index: 2;
+  min-height: 26px;
+  padding: 5px 8px;
+  border: 1px solid rgba(11, 11, 15, 0.22);
+  background: rgba(255, 255, 255, 0.86);
+  color: #111217;
+  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.ai-regenerate-sticker:hover {
+  background: #ffffff;
+}
+
+.ai-regenerate-sticker:disabled {
+  cursor: progress;
+  opacity: 0.68;
+}
+
 .ai-generation-loader {
   position: absolute;
   inset: 0;

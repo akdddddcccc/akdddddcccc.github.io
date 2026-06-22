@@ -9,7 +9,7 @@ const OPENAI_BASE_URL = (process.env.OPENAI_BASE_URL || "https://api.openai.com/
 const OPENAI_PROVIDER_LABEL = process.env.OPENAI_PROVIDER_LABEL || (OPENAI_BASE_URL.includes("api.openai.com") ? "OpenAI official" : "Custom OpenAI-compatible API");
 const IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || "gpt-image-2";
 const IMAGE_QUALITY = process.env.OPENAI_IMAGE_QUALITY || "low";
-const IMAGE_OUTPUT_FORMAT = process.env.OPENAI_IMAGE_OUTPUT_FORMAT || "png";
+const IMAGE_OUTPUT_FORMAT = process.env.OPENAI_IMAGE_OUTPUT_FORMAT || "jpeg";
 const TEXT_LAYER_OUTPUT_FORMAT = process.env.OPENAI_TEXT_LAYER_OUTPUT_FORMAT || "png";
 const USE_IMAGE_EDITS = process.env.OPENAI_IMAGE_USE_EDITS === "1";
 const IMAGE_TIMEOUT_MS = Number(process.env.OPENAI_IMAGE_TIMEOUT_MS || 90000);
@@ -46,7 +46,24 @@ function imageOutputFormat() {
 }
 
 function textLayerOutputFormat() {
-  return normalizeOutputFormat(process.env.OPENAI_TEXT_LAYER_OUTPUT_FORMAT || TEXT_LAYER_OUTPUT_FORMAT, "png");
+  // The text white-draft and its local transparent cutout must always be PNG: the cutout
+  // decoder (decodePngToRgba) is PNG-only, and a JPEG draft would break the alpha extraction.
+  return "png";
+}
+
+function detectImageProvider() {
+  const baseUrl = openAIBaseUrl();
+  if (baseUrl.includes("api.openai.com")) return "openai";
+  if (baseUrl.includes("api.ofox.io")) return "ofox";
+  return "compatible";
+}
+
+function mimeForFormat(format) {
+  const normalized = String(format || "").trim().toLowerCase();
+  if (normalized === "jpeg" || normalized === "jpg") return "image/jpeg";
+  if (normalized === "webp") return "image/webp";
+  if (normalized === "png") return "image/png";
+  return "";
 }
 
 const stickerSpecs = {
@@ -56,7 +73,7 @@ const stickerSpecs = {
     size: "1536x1024",
     width: 1536,
     height: 1024,
-    instruction: "生成直播间顶部横向贴片。顶部和左右边缘可有装饰、材质和光效，底边必须自然过渡到中性纯白或近白背景。若存在聚焦感，视觉轻微向下汇聚，但不要形成明确主体或海报中心。"
+    instruction: "生成直播间顶部横向贴片。装饰主要在上沿、左右上角和左右边缘；中心不强制浅色或纯白，但必须安静、低纹理、低复杂度、低干扰。只有底部 20%-28% 是中性纯白渐变结构区，最底边必须干净、无线条、无深色块、无复杂纹理。若存在聚焦感，视觉轻微向下汇聚，但不要形成明确主体或海报中心。"
   },
   side: {
     zhName: "侧贴背景",
@@ -64,7 +81,7 @@ const stickerSpecs = {
     size: "1024x1536",
     width: 1024,
     height: 1536,
-    instruction: "生成直播间侧边竖向窄幅贴片。装饰集中在左上角、上沿或外侧边缘，大部分区域保持素净、透气，不抢直播主体和商品。不要强纵深、不要中心主体、不要密集信息排版。严禁密铺、平铺、网格式重复、花纹重复、连续小图案、壁纸纹样或满版装饰；侧贴必须像一条留白充足的边缘贴片，而不是 pattern tile。"
+    instruction: "生成直播间侧边竖向窄幅贴片。装饰默认只集中在左上角和上边沿；其余 75%-88% 区域保持素净、弱纹理、低对比，不抢直播主体和商品。侧贴不强制向纯白过渡，可保留当前轮同色系安静底色。不要下角强装饰，不要左半边满图案，不要贯穿整条边的复杂纹理，不要强纵深、中心主体或密集信息排版。严禁密铺、平铺、网格式重复、花纹重复、连续小图案、壁纸纹样或满版装饰；侧贴必须像一条留白充足的辅助边缘，而不是独立主视觉或 pattern tile。"
   },
   bottom: {
     zhName: "下贴背景",
@@ -72,7 +89,7 @@ const stickerSpecs = {
     size: "1536x1024",
     width: 1536,
     height: 1024,
-    instruction: "生成直播间底部横向贴片。下沿可承载主要装饰、材质和光效，顶边必须自然过渡到中性纯白或近白背景。若存在聚焦感，视觉轻微向上汇聚，但不要形成明确主体或促销海报感。"
+    instruction: "生成直播间底部横向贴片。视觉重心集中在下沿、左右下角和底部边缘；底部装饰应比上贴更稳、更低、更克制。只有顶部 25%-32% 是中性纯白渐变结构区，最顶边必须干净、无线条、无深色块、无复杂纹理。不要硬底条、页脚栏或信息栏感。若存在聚焦感，视觉轻微向上汇聚，但不要形成明确主体或促销海报感。"
   }
 };
 
@@ -80,7 +97,7 @@ const basePrompt = `根据当前唯一参考图生成直播间贴片背景底图
 只继承当前参考图的构图气质、色彩关系、材质、光效、边缘装饰密度和留白方式。
 不要继承或生成文字、logo、二维码、价格标签、促销信息、人物、具体商品、海报排版、信息图结构。
 将参考图中的主体转译为抽象背景语言，使画面适合叠加直播间内容。
-整体干净、透气、浅色过渡自然，不抢直播主体。`;
+整体干净、透气，不抢直播主体；中心或内侧可以保留当前参考图的主色和材质气质，只要低干扰。纯白渐变只属于上贴底边和底贴顶边的结构要求，不能把整张图都洗成白色或淡色。`;
 
 const negativePrompt = `禁止生成：文字、logo、二维码、人物、具体商品、价格、优惠券、促销标签、按钮、信息图、海报模板、广告版式、月亮、天体、球体、强中心主体、强边框、深色压迫背景、过密装饰、脏灰底色。`;
 
@@ -184,10 +201,10 @@ function buildStickerPrompt(kind, userPrompt, workflowDoc) {
     "Role variation only: change placement and crop for top/side/bottom, but do not invent a different visual genre for one piece. The three pieces should look like siblings, not separate campaigns."
   ].join("\n");
   const fadeZone = kind === "top"
-    ? "For the top sticker, only the lower 20-30% may fade toward white for compositing. The upper and side decoration areas must keep the reference image's strongest saturation, contrast, texture depth, and highlight intensity. Match the current reference image's dimensionality: if it is flat 2D, keep it flat and graphic; if it is 3D-rendered, keep the same 3D/rendered language."
+    ? "For the top sticker, only the lower 20-28% may fade toward neutral pure white for compositing. The center does not need to be white; it may keep a calm version of the current reference palette. The upper and side decoration areas must keep the reference image's strongest saturation, contrast, texture depth, and highlight intensity. Match the current reference image's dimensionality: if it is flat 2D, keep it flat and graphic; if it is 3D-rendered, keep the same 3D/rendered language."
     : kind === "bottom"
-      ? "For the bottom sticker, only the upper 20-30% may fade toward white for compositing. The lower decoration area must keep the reference image's strongest saturation, contrast, texture depth, and highlight intensity."
-      : "For the side sticker, only the inner edge may become airy and pale for compositing. The outer decorative edge must keep the reference image's strongest saturation, contrast, texture depth, and highlight intensity.";
+      ? "For the bottom sticker, only the upper 25-32% may fade toward neutral pure white for compositing. The lower decoration area must keep the reference image's strongest saturation, contrast, texture depth, and highlight intensity, but stay lower, steadier, and more restrained than the top sticker."
+      : "For the side sticker, do not force a white fade. Keep only the upper-left corner and top edge decorated. At least 75-88% of the strip must remain quiet, low-contrast, weakly textured, and in the same calm palette family as the current reference. Never fill the left half or the full vertical edge with dense patterns.";
   return [
     basePrompt,
     workflowDocPromptBlock(workflowDoc),
@@ -199,6 +216,9 @@ function buildStickerPrompt(kind, userPrompt, workflowDoc) {
     "Color fidelity lock: do not wash out the whole image. Preserve the reference image's vivid accent colors, material richness, local dark-light contrast, and decorative density in the active ornament area.",
     "Dimensionality lock: match only the current reference image's dimensional style. Do not inherit 3D, bevel, plastic, metallic, volumetric, cinematic, or flat poster traits from any previous generation. If the current reference is flat, stay flat; if the current reference is 3D-rendered, keep a coherent 3D-rendered style across all three stickers.",
     "Fade control: the pale/white transition is only a compositing edge treatment, not a global color grade. Avoid pastelizing, desaturating, flattening, or turning the entire sticker into a single pale color.",
+    "Current-reference isolation: ignore any earlier generation, earlier uploaded image, old palette, old material, or old composition. This request has exactly one visual source: the current reference image.",
+    "Structural white rule: top bottom-edge white and bottom top-edge white must be clean neutral pure white gradients with no lines, texture, color blocks, or subject elements. Side sticker has no required pure-white transition.",
+    "Side restraint rule: the side sticker must read as an auxiliary edge. Decoration may not occupy the left half, lower corner, full-height edge, or most of the strip.",
     fadeZone,
     "",
     userPrompt ? `本轮用户补充要求：${userPrompt}` : "",
@@ -229,8 +249,32 @@ function dataUrlToUploadFile(dataUrl, index) {
   return blob;
 }
 
+// Decide which image-output parameters each provider can safely receive.
+// Official OpenAI (gpt-image-*) accepts output_format + quality on both generations and edits.
+// The OFOX Adapter accepts output_format (so we can ask for jpeg) but is finicky about extra
+// fields on edits, so quality stays gated behind IMAGE_EDIT_INCLUDE_EXTRAS there.
+// Other OpenAI-compatible gateways keep the previous conservative behavior.
+function imageRequestParams({ provider, outputFormat, isEdit }) {
+  if (provider === "openai") {
+    return { sendOutputFormat: true, sendQuality: true };
+  }
+  if (provider === "ofox") {
+    return {
+      sendOutputFormat: true,
+      sendQuality: isEdit ? IMAGE_EDIT_INCLUDE_EXTRAS : true
+    };
+  }
+  // Generic compatible gateway: generations historically always sent both params; edits
+  // only sent them when extras were explicitly enabled.
+  return {
+    sendOutputFormat: isEdit ? IMAGE_EDIT_INCLUDE_EXTRAS : true,
+    sendQuality: isEdit ? IMAGE_EDIT_INCLUDE_EXTRAS : true
+  };
+}
+
 async function requestOpenAIImage({ prompt, size, referenceImage, referenceImages, editSize, outputFormat = imageOutputFormat() }) {
   const baseUrl = openAIBaseUrl();
+  const provider = detectImageProvider();
   const headers = { Authorization: `Bearer ${openAIKey()}` };
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), IMAGE_TIMEOUT_MS);
@@ -242,12 +286,15 @@ async function requestOpenAIImage({ prompt, size, referenceImage, referenceImage
     if (USE_IMAGE_EDITS && inputImages.length) {
       const imageFiles = inputImages.map((image, index) => dataUrlToUploadFile(image, index)).filter(Boolean);
       if (imageFiles.length) {
+        const params = imageRequestParams({ provider, outputFormat, isEdit: true });
         const body = new FormData();
         body.append("model", IMAGE_MODEL);
         body.append("prompt", prompt);
         body.append("size", editSize || IMAGE_EDIT_SIZE || size);
-        if (IMAGE_EDIT_INCLUDE_EXTRAS) {
+        if (params.sendQuality) {
           body.append("quality", IMAGE_QUALITY);
+        }
+        if (params.sendOutputFormat) {
           body.append("output_format", outputFormat);
         }
         imageFiles.forEach((imageFile, index) => {
@@ -259,29 +306,33 @@ async function requestOpenAIImage({ prompt, size, referenceImage, referenceImage
           body,
           signal: controller.signal
         });
-        return parseOpenAIImageResponse(response);
+        return parseOpenAIImageResponse(response, outputFormat);
       }
     }
 
+    const params = imageRequestParams({ provider, outputFormat, isEdit: false });
+    const generationBody = {
+      model: IMAGE_MODEL,
+      prompt,
+      size
+    };
+    if (params.sendQuality) generationBody.quality = IMAGE_QUALITY;
+    if (params.sendOutputFormat) generationBody.output_format = outputFormat;
     const response = await fetch(`${baseUrl}/images/generations`, {
       method: "POST",
       headers: {
         ...headers,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({
-        model: IMAGE_MODEL,
-        prompt,
-        size,
-        quality: IMAGE_QUALITY,
-        output_format: outputFormat
-      }),
+      body: JSON.stringify(generationBody),
       signal: controller.signal
     });
-    return parseOpenAIImageResponse(response);
+    return parseOpenAIImageResponse(response, outputFormat);
   } catch (error) {
     if (error?.name === "AbortError") {
-      throw new Error(`Image request timed out after ${Math.round(IMAGE_TIMEOUT_MS / 1000)}s`);
+      const timeoutError = new Error(`Image request timed out after ${Math.round(IMAGE_TIMEOUT_MS / 1000)}s`);
+      timeoutError.isTimeout = true;
+      throw timeoutError;
     }
     throw error;
   } finally {
@@ -289,7 +340,7 @@ async function requestOpenAIImage({ prompt, size, referenceImage, referenceImage
   }
 }
 
-async function parseOpenAIImageResponse(response) {
+async function parseOpenAIImageResponse(response, requestedFormat) {
   const text = await response.text();
   let data = {};
   try {
@@ -306,7 +357,11 @@ async function parseOpenAIImageResponse(response) {
   const imageUrl = data?.data?.[0]?.url;
   if (imageUrl) return imageUrl;
   if (!imageBase64) throw new Error("OpenAI did not return image data.");
-  return `data:image/png;base64,${imageBase64}`;
+  const buffer = Buffer.from(imageBase64, "base64");
+  // Trust the actual bytes first; only fall back to the format we asked for, then PNG.
+  // Never blindly stamp PNG onto JPEG payloads.
+  const contentType = sniffImageMime(buffer) || mimeForFormat(requestedFormat) || "image/png";
+  return `data:${contentType};base64,${imageBase64}`;
 }
 
 async function imageUrlToDataUrl(imageUrl) {
@@ -426,17 +481,49 @@ function normalizeStickerImageSize(dataUrl, kind) {
   return `data:image/png;base64,${encodeRgbaToPng(normalized).toString("base64")}`;
 }
 
+async function requestStickerImageWithFormatFallback(kind, prompt, referenceImage, editSize) {
+  // Background stickers prefer JPEG, but some gateways reject output_format=jpeg.
+  // Fall back to PNG instead of failing the whole round. A timeout is not a format
+  // problem, so we do not retry on timeouts.
+  const preferred = imageOutputFormat();
+  const formats = preferred === "png" ? ["png"] : [preferred, "png"];
+  let lastError = null;
+  for (const outputFormat of formats) {
+    try {
+      return await requestOpenAIImage({
+        prompt,
+        size: stickerSpecs[kind].size,
+        referenceImage,
+        editSize,
+        outputFormat
+      });
+    } catch (error) {
+      lastError = error;
+      if (error?.isTimeout) throw error;
+    }
+  }
+  throw lastError || new Error("Image generation failed");
+}
+
 async function requestCheckedStickerImage(kind, prompt, referenceImage, editSize) {
-  const image = await requestOpenAIImage({
-    prompt,
-    size: stickerSpecs[kind].size,
-    referenceImage,
-    editSize,
-    outputFormat: imageOutputFormat()
-  });
-  const dataUrl = await imageUrlToDataUrl(image);
+  const image = await requestStickerImageWithFormatFallback(kind, prompt, referenceImage, editSize);
+  let dataUrl = "";
+  try {
+    dataUrl = await imageUrlToDataUrl(image);
+  } catch (error) {
+    if (/^https?:\/\//i.test(image)) {
+      return {
+        image,
+        warning: `${stickerSpecs[kind].zhName} 已生成，但服务器无法下载返回的图片 URL（${error.message || "load failed"}），已直接使用远程图片。若后续批量导出失败，请改用官方 API 或让网关返回 base64 图片数据。`
+      };
+    }
+    throw error;
+  }
   assertStickerImageNotBlank(dataUrl, kind);
-  return normalizeStickerImageSize(dataUrl, kind);
+  return {
+    image: normalizeStickerImageSize(dataUrl, kind),
+    warning: ""
+  };
 }
 
 async function requestStickerImage(kind, prompt, referenceImage) {
@@ -456,33 +543,17 @@ async function requestStickerImage(kind, prompt, referenceImage) {
   };
 
   const directResult = await tryAttempt("reference edit");
-  if (directResult) return { image: directResult, warning: "" };
+  if (directResult) return directResult;
 
   const requestedEditSize = IMAGE_EDIT_SIZE || stickerSpecs[kind].size;
   if (USE_IMAGE_EDITS && referenceImage && IMAGE_EDIT_FALLBACK_SIZE && requestedEditSize !== IMAGE_EDIT_FALLBACK_SIZE) {
     const squareResult = await tryAttempt(`reference edit ${IMAGE_EDIT_FALLBACK_SIZE}`, { editSize: IMAGE_EDIT_FALLBACK_SIZE });
     if (squareResult) {
       return {
-        image: squareResult,
-        warning: `${stickerSpecs[kind].zhName} 的原比例图生图失败，已用 ${IMAGE_EDIT_FALLBACK_SIZE} 兼容尺寸生成并裁成贴片比例。`
+        image: squareResult.image,
+        warning: squareResult.warning || `${stickerSpecs[kind].zhName} 的原比例图生图失败，已用 ${IMAGE_EDIT_FALLBACK_SIZE} 兼容尺寸生成并裁成贴片比例。`
       };
     }
-  }
-
-  const generationPrompt = [
-    prompt,
-    "",
-    "The image edit gateway returned blank or unusable output for the reference image. Generate a fresh non-blank sticker background from the written style instructions. The result must contain visible decorative texture, color, and composition; never return a blank or nearly white canvas."
-  ].join("\n");
-  const generatedResult = await tryAttempt("text-only generation retry", {
-    referenceImage: "",
-    prompt: generationPrompt
-  });
-  if (generatedResult) {
-    return {
-      image: generatedResult,
-      warning: `${stickerSpecs[kind].zhName} 的图生图不可用，已改用文字描述生成；参考图相似度会降低。`
-    };
   }
 
   throw new Error(failedAttempts.join(" / ") || "Image generation failed");
@@ -530,12 +601,13 @@ function escapeSvg(value) {
     .replace(/"/g, "&quot;");
 }
 
-function makeTextLayerSvg({ copyText, styleKey, background = "transparent" }) {
+function makeTextLayerSvg({ copyText, styleKey, background = "transparent", textBrightness = "light" }) {
   const text = String(copyText || "").replace(/^例如：\n?|^Example:\n?/i, "").replace(/[“”"]/g, "").trim() || "NOBOOK · 618 狂欢季\n重走真理诞生路";
   const lines = text.split(/\n+/).slice(0, 4);
   const expressive = styleKey === "expressive";
-  const fill = expressive ? "#f7f3e8" : "#ffffff";
-  const stroke = expressive ? "#222719" : "#121212";
+  const dark = textBrightness === "dark";
+  const fill = dark ? "#1d2118" : (expressive ? "#f7f3e8" : "#ffffff");
+  const stroke = dark ? "#f3efe4" : (expressive ? "#222719" : "#121212");
   const fontFamily = expressive
     ? "'Kaiti SC', 'STKaiti', 'Songti SC', 'Noto Serif SC', serif"
     : "'Songti SC', 'STSong', 'Noto Serif SC', 'Source Han Serif SC', serif";
@@ -725,11 +797,41 @@ function isNearWhitePixel(rgba, index, threshold = 236) {
   return min >= threshold && max - min <= 24;
 }
 
-function removeConnectedWhiteBackground(dataUrl) {
+function isNearBlackPixel(rgba, index, threshold = 24) {
+  const red = rgba[index];
+  const green = rgba[index + 1];
+  const blue = rgba[index + 2];
+  const max = Math.max(red, green, blue);
+  const min = Math.min(red, green, blue);
+  return max <= threshold && max - min <= 24;
+}
+
+function isMattePixel(rgba, index, matteMode) {
+  return matteMode === "black"
+    ? isNearBlackPixel(rgba, index)
+    : isNearWhitePixel(rgba, index);
+}
+
+// Feather alpha by distance from the matte color, so anti-aliased glyph edges fade out
+// smoothly instead of leaving a hard halo. White matte fades on darkness; black on brightness.
+function matteFeatherAlpha(rgba, index, matteMode) {
+  if (matteMode === "black") {
+    const maxChannel = Math.max(rgba[index], rgba[index + 1], rgba[index + 2]);
+    return Math.max(0, Math.min(255, Math.round((maxChannel - 8) * 14)));
+  }
+  const minChannel = Math.min(rgba[index], rgba[index + 1], rgba[index + 2]);
+  return Math.max(0, Math.min(255, Math.round((248 - minChannel) * 14)));
+}
+
+// Only the matte region that is connected to the canvas border is removed. Glyph-interior
+// highlights (white inside dark strokes) and interior dark detail (black outline/shadow inside
+// light strokes) are not border-connected, so the flood fill never reaches them and they survive.
+function removeConnectedMatte(dataUrl, matteMode = "white") {
   const parsed = dataUrlToBuffer(dataUrl);
   if (!parsed || parsed.mime !== "image/png") {
-    throw new Error("Local white-background cutout needs a PNG data URL.");
+    throw new Error("Local matte cutout needs a PNG data URL.");
   }
+  const mode = matteMode === "black" ? "black" : "white";
 
   const png = decodePngToRgba(parsed.buffer);
   const { width, height, rgba } = png;
@@ -742,7 +844,7 @@ function removeConnectedWhiteBackground(dataUrl) {
     const pixel = y * width + x;
     if (visited[pixel]) return;
     const index = pixel * 4;
-    if (!isNearWhitePixel(rgba, index)) return;
+    if (!isMattePixel(rgba, index, mode)) return;
     visited[pixel] = 1;
     queue.push(pixel);
   };
@@ -766,24 +868,74 @@ function removeConnectedWhiteBackground(dataUrl) {
     enqueue(x, y - 1);
   }
 
+  const fallbackChannel = mode === "black" ? 0 : 255;
   for (let pixel = 0; pixel < total; pixel += 1) {
     if (!visited[pixel]) continue;
     const index = pixel * 4;
-    const minChannel = Math.min(rgba[index], rgba[index + 1], rgba[index + 2]);
-    const alpha = Math.max(0, Math.min(255, Math.round((248 - minChannel) * 14)));
+    const alpha = matteFeatherAlpha(rgba, index, mode);
     rgba[index + 3] = alpha;
     if (alpha === 0) {
-      rgba[index] = 255;
-      rgba[index + 1] = 255;
-      rgba[index + 2] = 255;
+      rgba[index] = fallbackChannel;
+      rgba[index + 1] = fallbackChannel;
+      rgba[index + 2] = fallbackChannel;
     }
   }
 
   return `data:image/png;base64,${encodeRgbaToPng(png).toString("base64")}`;
 }
 
+// Average decoration luminance of a PNG top sticker, ignoring transparent and near-white fade
+// pixels. Returns 0-255, or null when the image is not locally decodable (e.g. a JPEG sticker).
+function measureDecorationBrightness(dataUrl) {
+  const parsed = parsedImageBuffer(dataUrl);
+  if (!parsed || parsed.mime !== "image/png") return null;
+  let png;
+  try {
+    png = decodePngToRgba(parsed.buffer);
+  } catch {
+    return null;
+  }
+  const { width, height, rgba } = png;
+  const total = width * height;
+  if (!total) return null;
+  let sum = 0;
+  let counted = 0;
+  for (let pixel = 0; pixel < total; pixel += 1) {
+    const index = pixel * 4;
+    if (rgba[index + 3] <= 12) continue;
+    const red = rgba[index];
+    const green = rgba[index + 1];
+    const blue = rgba[index + 2];
+    if (Math.min(red, green, blue) >= 238 && Math.max(red, green, blue) - Math.min(red, green, blue) <= 24) continue;
+    sum += 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+    counted += 1;
+  }
+  if (counted < total * 0.02) return null;
+  return sum / counted;
+}
+
+// Pair the matte color with the planned lettering brightness so the cutout always keys out the
+// correct background: dark text -> white matte, light text -> black matte. In auto mode we read
+// the top sticker brightness when it is locally decodable, otherwise default to dark-on-white.
+function resolveMatte(textColorMode, topStickerImage) {
+  if (textColorMode === "dark") {
+    return { matteMode: "white", matteColor: "#ffffff", textBrightness: "dark", brightnessSource: "forced-dark" };
+  }
+  if (textColorMode === "light") {
+    return { matteMode: "black", matteColor: "#000000", textBrightness: "light", brightnessSource: "forced-light" };
+  }
+  const brightness = measureDecorationBrightness(topStickerImage);
+  if (brightness === null) {
+    return { matteMode: "white", matteColor: "#ffffff", textBrightness: "dark", brightnessSource: "auto-default" };
+  }
+  if (brightness < 128) {
+    return { matteMode: "black", matteColor: "#000000", textBrightness: "light", brightnessSource: "auto-measured" };
+  }
+  return { matteMode: "white", matteColor: "#ffffff", textBrightness: "dark", brightnessSource: "auto-measured" };
+}
+
 async function handleStickerBackgrounds(body) {
-  const kinds = ["top", "side", "bottom"];
+  const kinds = ["top", "bottom", "side"];
   const workflowDoc = await readWorkflowDoc();
   const prompts = Object.fromEntries(kinds.map((kind) => [
     kind,
@@ -884,8 +1036,46 @@ async function handleStickerBackgrounds(body) {
   };
 }
 
+function normalizeTextColorMode(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (["dark", "deep", "深", "深色"].includes(normalized)) return "dark";
+  if (["light", "pale", "浅", "浅色"].includes(normalized)) return "light";
+  return "auto";
+}
+
+function textColorModePromptLines(textColorMode, matteMode, textBrightness) {
+  // Shared across all modes: never emit pure black for dark lettering, anchor on the step-1 top
+  // sticker contrast, and keep the lettering distinct from the solid matte it sits on.
+  const shared = [
+    "Hard color rule: never fill DARK main lettering with pure black #000000 or a flat near-#000 blackest tone. Use deep charcoal, warm ink, dark espresso brown, or a very dark neutral with subtle tint instead, so the type keeps depth and never looks like a flat #000 block.",
+    "Authority rule: the step-1 top sticker (Reference image 1) decides the light/dark relationship. Read its real background/ornament brightness (ignoring pure-white fade zones) and keep the lettering's value contrast strong against that.",
+    matteMode === "black"
+      ? "Matte rule: the background is a flat pure-black matte that will be keyed out. The main lettering must be light (warm white, ivory, pearl) and clearly separated from the black matte. Any dark outline, shadow, or interior texture must sit INSIDE or touching the letters, never as a separate dark patch floating in the matte."
+      : "Matte rule: the background is a flat pure-white matte that will be keyed out. The main lettering must be dark and clearly separated from the white matte. Any white highlight or interior detail must sit INSIDE the letters, never as a separate white patch floating in the matte."
+  ];
+  if (textColorMode === "dark") {
+    return [
+      ...shared,
+      "Color mode = DARK lettering (forced) on a white matte: make the main type a deep, rich dark tone (charcoal, ink, espresso) — never pure black. It must read clearly dark against the white matte and dark relative to the top sticker."
+    ];
+  }
+  if (textColorMode === "light") {
+    return [
+      ...shared,
+      "Color mode = LIGHT lettering (forced) on a black matte: make the main type a warm white, ivory, or pearl light neutral so it stands out against the pure-black matte. Add a subtle darker inner edge or shadow only if it stays attached to the strokes; do not place loose dark shapes in the matte."
+    ];
+  }
+  return [
+    ...shared,
+    textBrightness === "light"
+      ? "Color mode = AUTO resolved to LIGHT lettering on a black matte (the top sticker reads dark/saturated): use warm white/ivory lettering that stands out against the pure-black matte."
+      : "Color mode = AUTO resolved to DARK lettering on a white matte (the top sticker reads light/airy): use deep dark (not pure black) lettering that stands out against the pure-white matte."
+  ];
+}
+
 async function handleTextLayer(body) {
   const styleKey = body.styleKey === "expressive" ? "expressive" : "clean";
+  const textColorMode = normalizeTextColorMode(body.textColorMode);
   const fontPresetKeys = new Set(["elegant-songti", "expressive-calligraphy", "rounded-cute"]);
   const fontPresetKey = fontPresetKeys.has(body.fontPresetKey) ? body.fontPresetKey : "";
   const fontReferenceSource = body.fontReferenceSource === "preset" ? "preset" : "upload";
@@ -894,12 +1084,26 @@ async function handleTextLayer(body) {
   const fontReferenceImage = TEXT_LAYER_USE_FONT_REFERENCE ? (body.fontReferenceImage || "") : "";
   const sourceTypographyReferenceImage = TEXT_LAYER_USE_SOURCE_REFERENCE ? (body.sourceTypographyReferenceImage || "") : "";
   const referenceImages = [topStickerImage, fontReferenceImage, sourceTypographyReferenceImage].filter(Boolean);
+  const { matteMode, matteColor, textBrightness, brightnessSource } = resolveMatte(textColorMode, topStickerImage);
+  const matteName = matteMode === "black" ? "pure black #000000" : "pure white #ffffff";
+  const debug = {
+    topStickerAttached: Boolean(topStickerImage),
+    fontReferenceAttached: Boolean(fontReferenceImage),
+    sourceTypographyReferenceAttached: Boolean(sourceTypographyReferenceImage),
+    referenceImageCount: referenceImages.length,
+    fontReferenceSource,
+    textColorMode,
+    matteMode,
+    matteColor,
+    textBrightness,
+    brightnessSource
+  };
   const prompt = [
-    "Generate a standalone livestream typography asset on a strict pure white #ffffff background.",
-    "The final image must be a clean white-background typography design draft, not a transparent image.",
+    `Generate a standalone livestream typography asset on a strict ${matteName} background (a flat solid matte fill).`,
+    `The final image must be a clean ${matteMode === "black" ? "black" : "white"}-background typography design draft, not a transparent image. Fill the entire background edge to edge with the flat matte color so it can be keyed out cleanly.`,
     "Do not composite onto any reference image or recreate any reference background.",
     topStickerImage
-      ? "Reference image 1 is the generated top sticker. It is the primary visual source: inherit typography color direction, material feeling, brightness contrast, and small decorative accents around or attached to letters from this top sticker."
+      ? "Reference image 1 is the generated top sticker. It is the primary visual source for material feeling, brightness contrast, and small decorative accents around or attached to letters. Do not blindly copy its main palette into the main letter fill."
       : "",
     fontReferenceImage
       ? (fontReferenceSource === "preset"
@@ -912,14 +1116,14 @@ async function handleTextLayer(body) {
     body.useReferenceTextStyle
       ? "The user asked to consider text-style cues from the original step-1 reference, but no extra source image is attached for stability. Infer only generic typography qualities that are already visible in the new top sticker and the selected typography route; do not introduce any old palette or scene residue."
       : "",
-    "The top sticker reference always wins for color, material direction, and small surrounding decorative elements.",
+    "The top sticker reference always wins for material direction and small surrounding decorative elements.",
     "Palette isolation: the original uploaded source image and any typography reference must never affect lettering color. They may not introduce old colors, previous palettes, background tones, product colors, or scene lighting into the new text layer.",
-    "Use only the newly generated top sticker as the palette source. If the top sticker is pale near its fade edge, sample color from its most saturated decorative/highlight areas instead of the faded white transition.",
-    "Color lock: choose lettering fill, outline, shadow, highlights, edge effects, and small accent strokes only from Reference image 1/top sticker or from neutral contrast needed for readability. Never borrow the color palette from a font reference or typography preset.",
+    "This light/dark decision controls only color and small decorative elements, not the letterform route, font structure, copy, layout hierarchy, or stroke style.",
+    "Use Reference image 1/top sticker colors only for tiny accent strokes, sparkles, outlines, edge glints, shadows, or small attached ornaments. Do not use top-sticker accent colors as the dominant main letter fill when they reduce contrast.",
+    "Color lock: choose lettering fill from the contrast-first dark/bright neutral rule above. Choose outline, shadow, highlights, edge effects, and small accent strokes from Reference image 1/top sticker only when they help readability and local harmony. Never borrow the color palette from a font reference or typography preset.",
     "Letterform lock: the selected typography route controls silhouette, stroke structure, serif/brush/rounded character, and spacing. The top sticker reference must not collapse different typography routes into the same font style.",
     "The optional font reference never decides the background, global color, large ornaments, or non-text visual content.",
     "Do not recreate large color blocks, ribbons, watercolor backgrounds, geometric networks, poster scenes, people, products, logos, QR codes, labels, captions, slogans, signatures, or watermarks.",
-    "First judge the intended text placement brightness from the top sticker: light placement areas need darker lettering; dark or saturated placement areas need lighter lettering with strong outline, shadow, or contrast edge.",
     "必须逐字保留以下原文案，不增删、不翻译、不改写，保留换行结构：",
     copyText,
     styleKey === "expressive"
@@ -934,22 +1138,27 @@ async function handleTextLayer(body) {
     fontPresetKey === "rounded-cute"
       ? "Typography preset: rounded cute sticker lettering. Use bubbly, thick, soft-cornered, playful, high-readability title shapes, friendly inflated strokes, round terminals, and compact launch-poster hierarchy. It must look clearly different from Songti serif and brush calligraphy. This preset controls letter shape only; do not use the preset sample's orange, navy, cyan, or red palette unless those colors already appear in Reference image 1."
       : "",
-    "If the lettering is light on the white draft, add a darker outline or shadow so the white-background cutout will not erase highlights.",
+    ...textColorModePromptLines(textColorMode, matteMode, textBrightness),
+    matteMode === "black"
+      ? "Edge rule: keep every glyph stroke, serif, and accent fully readable against the black matte; do not let dark strokes blend into the matte."
+      : "Edge rule: keep every glyph stroke, serif, and accent fully readable against the white matte; if any light highlight sits inside a letter, keep a darker edge around it so the cutout will not erase it.",
     "Keep the brand line smaller and clean. Make the main title dominant. The middle dot `·` must stay accurate.",
     "Complex Chinese characters, especially `诞` and `路`, must stay structurally correct and readable.",
     body.promptText ? `用户补充要求：${body.promptText}` : ""
   ].filter(Boolean).join("\n");
 
-  const fallbackTransparent = makeTextLayerSvg({ copyText, styleKey });
-  const fallbackWhiteDraft = makeTextLayerSvg({ copyText, styleKey, background: "#ffffff" });
+  const fallbackTransparent = makeTextLayerSvg({ copyText, styleKey, textBrightness });
+  const fallbackMatteDraft = makeTextLayerSvg({ copyText, styleKey, background: matteColor, textBrightness });
 
   if (!openAIKey() || !TEXT_LAYER_USE_API) {
     return {
       ok: true,
       generated: false,
       openAIRequestOk: false,
+      matteMode,
+      matteColor,
       assets: {
-        whiteDraft: fallbackWhiteDraft,
+        whiteDraft: fallbackMatteDraft,
         transparent: fallbackTransparent
       },
       styleKey,
@@ -957,6 +1166,7 @@ async function handleTextLayer(body) {
       prompt,
       model: IMAGE_MODEL,
       size: TEXT_LAYER_SIZE,
+      debug,
       message: !openAIKey()
         ? "未检测到 OPENAI_API_KEY，已返回本地 SVG 文字图层草稿。"
         : "文字图层 API 已关闭，已返回本地 SVG 文字图层草稿。"
@@ -991,17 +1201,20 @@ async function handleTextLayer(body) {
     let cutoutOk = false;
     let cutoutError = "";
     try {
-      transparent = removeConnectedWhiteBackground(whiteDraft);
+      transparent = removeConnectedMatte(whiteDraft, matteMode);
       cutoutOk = true;
     } catch (error) {
       cutoutError = error.message || "Local cutout failed";
     }
 
+    const matteLabel = matteMode === "black" ? "黑底" : "白底";
     return {
       ok: true,
       generated: true,
       openAIRequestOk: true,
       cutoutOk,
+      matteMode,
+      matteColor,
       assets: {
         whiteDraft,
         transparent
@@ -1011,21 +1224,24 @@ async function handleTextLayer(body) {
       prompt,
       model: IMAGE_MODEL,
       size: TEXT_LAYER_SIZE,
+      debug,
       referenceFallback,
       error: cutoutError || referenceFallback,
       message: cutoutOk
         ? (referenceFallback
-          ? "白底字体稿已生成，并已本地扣白底为透明 PNG。可选文字参考图未被网关接受，本次已退回只以上贴图为参考；请检查文字是否完全正确。"
-          : "白底字体稿已生成，并已本地扣白底为透明 PNG。请检查文字是否完全正确。")
-        : `白底字体稿已生成，但本地扣白底失败，已回退 SVG 透明稿：${cutoutError}`
+          ? `${matteLabel}字体稿已生成，并已本地扣${matteLabel}为透明 PNG。可选文字参考图未被网关接受，本次已退回只以上贴图为参考；请检查文字是否完全正确。`
+          : `${matteLabel}字体稿已生成，并已本地扣${matteLabel}为透明 PNG。请检查文字是否完全正确。`)
+        : `${matteLabel}字体稿已生成，但本地扣${matteLabel}失败，已回退 SVG 透明稿：${cutoutError}`
     };
   } catch (error) {
     return {
       ok: true,
       generated: false,
       openAIRequestOk: false,
+      matteMode,
+      matteColor,
       assets: {
-        whiteDraft: fallbackWhiteDraft,
+        whiteDraft: fallbackMatteDraft,
         transparent: fallbackTransparent
       },
       styleKey,
@@ -1033,6 +1249,7 @@ async function handleTextLayer(body) {
       prompt,
       model: IMAGE_MODEL,
       size: TEXT_LAYER_SIZE,
+      debug,
       error: error.message || "Text layer generation failed",
       message: `文字图层 API 生成失败，已回退本地 SVG 草稿：${error.message || "unknown error"}`
     };
@@ -1119,7 +1336,16 @@ async function route(request, response) {
   }
 }
 
-export { handleStickerBackgrounds, handleTextLayer, route, workflowStatus };
+export {
+  handleStickerBackgrounds,
+  handleTextLayer,
+  route,
+  workflowStatus,
+  removeConnectedMatte,
+  resolveMatte,
+  encodeRgbaToPng,
+  decodePngToRgba
+};
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   createServer(route).listen(PORT, "127.0.0.1", () => {
