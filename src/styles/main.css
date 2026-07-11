@@ -1,7 +1,11 @@
-﻿@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap");
+﻿@import url("https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap");
 
-:root {
-  --font-ui: "Inter", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC", sans-serif;
+@font-face {
+  font-family: "Inter";
+  src: url("/assets/fonts/Inter-Regular.ttf") format("truetype");
+  font-display: swap;
+  font-weight: 400;
+  font-style: normal;
 }
 
 @font-face {
@@ -50,7 +54,7 @@ body {
   margin: 0;
   background: #f5f5f5;
   color: #0b0b0f;
-  font-family: var(--font-ui);
+  font-family: "Inter", "MiSans", "Alibaba PuHuiTi", "PingFang SC", "Microsoft YaHei", sans-serif;
   overflow-x: hidden;
 }
 
@@ -744,32 +748,6 @@ a {
   line-height: 1.8;
 }
 
-.project-hero-actions {
-  margin-top: clamp(34px, 5vw, 62px);
-}
-
-.project-product-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: min(100%, 380px);
-  min-height: 54px;
-  padding: 14px 22px;
-  border: 1px solid #0b0b0f;
-  background: #0b0b0f;
-  color: #fff;
-  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0;
-  text-decoration: none;
-}
-
-.project-product-link:hover {
-  background: transparent;
-  color: #0b0b0f;
-}
-
 .download-row {
   display: flex;
   flex-wrap: wrap;
@@ -910,35 +888,6 @@ a {
   font-size: 12px;
 }
 
-.task-map-demo__status {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  border-top: 1px solid rgba(11, 11, 15, 0.14);
-  border-bottom: 1px solid rgba(11, 11, 15, 0.14);
-}
-
-.task-map-demo__status span {
-  display: grid;
-  gap: 6px;
-  min-width: 0;
-  padding: 12px 14px;
-  color: rgba(11, 11, 15, 0.62);
-  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
-  font-size: 11px;
-  line-height: 1.45;
-}
-
-.task-map-demo__status span + span {
-  border-left: 1px solid rgba(11, 11, 15, 0.14);
-}
-
-.task-map-demo__status strong {
-  color: #0b0b0f;
-  font-size: 12px;
-  font-weight: 600;
-}
-
 .task-map-demo button,
 .task-map-demo input,
 .task-map-demo select,
@@ -988,6 +937,64 @@ a {
 .ai-service-status.keyless {
   border-color: rgba(139, 113, 47, 0.42);
   color: #765f23;
+}
+
+.ai-local-config {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.3fr) minmax(220px, 1fr) 120px 120px auto;
+  gap: 8px;
+  align-items: end;
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid rgba(11, 11, 15, 0.14);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.ai-local-config label {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ai-local-config span,
+.ai-local-config small {
+  color: rgba(11, 11, 15, 0.58);
+  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
+  font-size: 11px;
+}
+
+.ai-local-config input,
+.ai-local-config select {
+  min-width: 0;
+  height: 34px;
+  border: 1px solid rgba(11, 11, 15, 0.18);
+  background: #fff;
+  color: #0b0b0f;
+  font: inherit;
+  font-size: 12px;
+}
+
+.ai-local-config button {
+  height: 34px;
+  border: 1px solid #0b0b0f;
+  background: #0b0b0f;
+  color: #fff;
+  font-size: 12px;
+}
+
+.ai-local-config small {
+  grid-column: 1 / -1;
+  min-height: 14px;
+}
+
+@media (max-width: 980px) {
+  .ai-local-config {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .ai-local-config button {
+    width: fit-content;
+  }
 }
 
 .ai-workflow-tabs a {
@@ -1174,9 +1181,6 @@ a {
 }
 
 .ai-workflow-toolrow button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   min-height: 36px;
   padding: 8px 12px;
   border: 1px solid rgba(11, 11, 15, 0.42);
@@ -1191,41 +1195,6 @@ a {
 .ai-workflow-toolrow button.active {
   background: #0b0b0f;
   color: #fff;
-}
-
-.ai-workflow-toolrow button.is-used {
-  border-color: #0b0b0f;
-  background: #0b0b0f;
-  color: #fff;
-  font-weight: 600;
-}
-
-.ai-fusion-toolrow {
-  align-items: center;
-  gap: 0;
-}
-
-.ai-fusion-toolrow button {
-  min-height: 44px;
-  white-space: nowrap;
-}
-
-.ai-fusion-connector {
-  width: 26px;
-  height: 2px;
-  flex: 0 0 26px;
-  background: #99999a;
-}
-
-.ai-fusion-connector.is-complete {
-  background: #0b0b0f;
-}
-
-.ai-workflow-reset-glyph {
-  display: block;
-  width: 17px;
-  height: 17px;
-  margin-left: 8px;
 }
 
 .ai-workflow-button {
@@ -1335,36 +1304,28 @@ a {
   background: #0b0b0f;
 }
 
-.ai-sticker-actions {
+.ai-regenerate-sticker {
   position: absolute;
-  right: 8px;
+  left: 8px;
   bottom: 8px;
   z-index: 2;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 5px;
-  max-width: calc(100% - 16px);
-}
-
-.ai-sticker-actions button {
   min-height: 26px;
   padding: 5px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.72);
-  background: rgba(11, 11, 15, 0.68);
-  color: #fff;
+  border: 1px solid rgba(11, 11, 15, 0.22);
+  background: rgba(255, 255, 255, 0.86);
+  color: #111217;
   font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
   font-size: 10px;
   cursor: pointer;
 }
 
-.ai-sticker-actions button:hover:not(:disabled) {
-  background: #0b0b0f;
+.ai-regenerate-sticker:hover {
+  background: #ffffff;
 }
 
-.ai-sticker-actions button:disabled {
-  cursor: wait;
-  opacity: 0.56;
+.ai-regenerate-sticker:disabled {
+  cursor: progress;
+  opacity: 0.68;
 }
 
 .ai-generation-loader {
@@ -1397,7 +1358,7 @@ a {
 .ai-generation-loader small {
   max-width: 420px;
   color: rgba(11, 11, 15, 0.62);
-  font-family: var(--font-ui);
+  font-family: "MiSans", "Alibaba PuHuiTi", sans-serif;
   font-size: 12px;
   line-height: 1.6;
 }
@@ -1870,448 +1831,8 @@ a {
   padding: 9px 12px;
 }
 
-.task-map-product-link {
-  display: inline-flex;
-  align-items: center;
-  min-height: 38px;
-  padding: 9px 12px;
-  border: 1px solid #0b0b0f;
-  background: #0b0b0f;
-  color: #fff;
-  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
-  text-decoration: none;
-}
-
-.task-map-product-link:hover {
-  background: transparent;
-  color: #0b0b0f;
-}
-
-.task-map-product-link--pending,
-.task-map-product-link--pending:hover {
-  border-color: rgba(11, 11, 15, 0.18);
-  background: rgba(11, 11, 15, 0.06);
-  color: rgba(11, 11, 15, 0.42);
-  cursor: not-allowed;
-}
-
 .task-map-demo__actions span {
   color: rgba(11, 11, 15, 0.6);
-}
-
-.task-map-story {
-  display: grid;
-  gap: 36px;
-}
-
-.task-map-story__intro {
-  grid-template-columns: minmax(320px, 0.9fr) minmax(360px, 0.72fr);
-  gap: clamp(64px, 10vw, 150px);
-  align-items: end;
-  padding: clamp(34px, 5vw, 72px) 0 clamp(26px, 4vw, 58px);
-}
-
-.task-map-story__intro h2 {
-  max-width: 7.5em;
-  font-size: clamp(60px, 8.6vw, 132px);
-  line-height: 0.92;
-  letter-spacing: -0.04em;
-}
-
-.task-map-story__intro p:not(.task-map-demo__kicker) {
-  max-width: 34em;
-  font-size: clamp(18px, 1.55vw, 25px);
-  font-weight: 650;
-  line-height: 1.95;
-}
-
-.task-map-story__actions {
-  align-content: start;
-  justify-items: start;
-  gap: 14px;
-  padding-bottom: clamp(4px, 1vw, 18px);
-}
-
-.task-map-story__actions span {
-  max-width: 34em;
-  font-size: clamp(17px, 1.38vw, 23px);
-  font-weight: 650;
-  line-height: 1.75;
-}
-
-.task-map-story__process {
-  display: grid;
-  gap: clamp(28px, 4vw, 48px);
-  padding: clamp(30px, 5vw, 64px) clamp(26px, 5vw, 72px);
-  color: #0b0b0f;
-  background:
-    linear-gradient(90deg, rgba(11, 11, 15, 0.035) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(11, 11, 15, 0.035) 1px, transparent 1px),
-    #f7f7f4;
-  background-size: 42px 42px;
-  border: 1px solid rgba(11, 11, 15, 0.12);
-}
-
-.task-map-story__progress {
-  position: relative;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  align-items: center;
-  max-width: 620px;
-  min-height: 54px;
-}
-
-.task-map-story__progress::before {
-  content: "";
-  position: absolute;
-  left: 19px;
-  right: calc(25% - 19px);
-  top: 19px;
-  height: 2px;
-  background: rgba(11, 11, 15, 0.72);
-}
-
-.task-map-story__progress button {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  justify-items: start;
-  gap: 10px;
-  padding: 0;
-  color: rgba(11, 11, 15, 0.48);
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
-}
-
-.task-map-story__progress button i {
-  position: relative;
-  width: 38px;
-  height: 38px;
-  display: block;
-  background: #f7f7f4;
-  border: 4px solid #0b0b0f;
-  border-radius: 50%;
-  box-shadow: 0 0 0 8px #f7f7f4;
-}
-
-.task-map-story__progress button i::after {
-  content: "";
-  position: absolute;
-  inset: 9px;
-  border-radius: 50%;
-  background: #0b0b0f;
-  opacity: 0;
-  transform: scale(0.62);
-  transition: opacity 0.2s ease, transform 0.2s ease;
-}
-
-.task-map-story__progress button.active {
-  color: #0b0b0f;
-}
-
-.task-map-story__progress button.active i::after {
-  opacity: 1;
-  transform: scale(1);
-}
-
-.task-map-story__progress button span {
-  color: inherit;
-  font-size: 12px;
-  letter-spacing: 0.08em;
-}
-
-.task-map-story__viewer {
-  position: relative;
-  min-height: clamp(420px, 43vw, 660px);
-  overflow: hidden;
-  background:
-    radial-gradient(circle at 24% 36%, rgba(11, 11, 15, 0.045), transparent 32%),
-    rgba(255, 255, 255, 0.28);
-  border: 1px solid rgba(11, 11, 15, 0.08);
-}
-
-.task-map-story__screen {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: min(860px, 62vw);
-  aspect-ratio: 16 / 9;
-  margin: 0;
-  overflow: hidden;
-  border: 1px solid rgba(11, 11, 15, 0.18);
-  background: #ffffff;
-  box-shadow: 0 28px 70px rgba(11, 11, 15, 0.16);
-  opacity: 0;
-  transform: translate(-50%, -50%) scale(0.72);
-  transition: transform 0.38s ease, opacity 0.38s ease, filter 0.38s ease;
-}
-
-.task-map-story__screen.active {
-  z-index: 4;
-  opacity: 1;
-  transform: translate(-50%, -50%) scale(1);
-}
-
-.task-map-story__screen.previous {
-  z-index: 3;
-  opacity: 0.66;
-  filter: grayscale(0.12) brightness(0.94);
-  transform: translate(calc(-50% - 260px), calc(-50% + 42px)) scale(0.7);
-}
-
-.task-map-story__screen.next {
-  z-index: 2;
-  opacity: 0.58;
-  filter: grayscale(0.16) brightness(0.9);
-  transform: translate(calc(-50% + 280px), calc(-50% + 58px)) scale(0.66);
-}
-
-.task-map-story__screen.far-previous,
-.task-map-story__screen.far-next {
-  opacity: 0.24;
-  filter: grayscale(0.28) brightness(0.86);
-}
-
-.task-map-story__screen.far-previous {
-  transform: translate(calc(-50% - 390px), calc(-50% + 92px)) scale(0.52);
-}
-
-.task-map-story__screen.far-next {
-  transform: translate(calc(-50% + 420px), calc(-50% + 104px)) scale(0.5);
-}
-
-.task-map-story__screen img {
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: cover;
-}
-
-.task-map-story__single-copy {
-  width: min(760px, 100%);
-  justify-self: center;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(18px, 3vw, 38px);
-  min-height: 132px;
-  margin-top: -8px;
-  padding: clamp(18px, 3vw, 34px) clamp(18px, 4vw, 54px);
-  text-align: center;
-  border-top: 1px solid rgba(11, 11, 15, 0.14);
-  border-bottom: 1px solid rgba(11, 11, 15, 0.14);
-}
-
-.task-map-story__single-copy span {
-  color: rgba(11, 11, 15, 0.32);
-  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
-  font-size: clamp(62px, 8vw, 118px);
-  line-height: 0.9;
-}
-
-.task-map-story__single-copy div {
-  display: grid;
-  gap: 12px;
-  justify-items: center;
-}
-
-.task-map-story__single-copy strong {
-  max-width: 12em;
-  font-family: var(--font-ui);
-  font-size: clamp(28px, 3.8vw, 54px);
-  line-height: 1.04;
-  letter-spacing: -0.02em;
-}
-
-.task-map-story__single-copy small {
-  max-width: 30em;
-  color: rgba(11, 11, 15, 0.62);
-  font-size: clamp(15px, 1.25vw, 18px);
-  font-weight: 560;
-  line-height: 1.72;
-}
-
-.task-map-project-story {
-  display: grid;
-  gap: clamp(96px, 9vw, 128px);
-  width: min(1200px, 100%);
-  margin: clamp(96px, 10vw, 132px) auto 0;
-}
-
-.task-map-project-section {
-  display: grid;
-  min-width: 0;
-}
-
-.task-map-project-copy {
-  display: grid;
-  gap: 18px;
-  max-width: 680px;
-}
-
-.task-map-project-copy h2,
-.task-map-project-status h2 {
-  margin: 0;
-  font-size: clamp(44px, 4.9vw, 68px);
-  line-height: 0.98;
-  letter-spacing: -0.025em;
-  overflow-wrap: anywhere;
-  text-wrap: balance;
-}
-
-.task-map-project-eyebrow {
-  margin: 0;
-  color: rgba(11, 11, 15, 0.48);
-  font-family: "JetBrains Mono", monospace;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  line-height: 1.2;
-  text-transform: uppercase;
-}
-
-.task-map-project-copy p,
-.task-map-project-step__copy p,
-.task-map-project-status p,
-.task-map-project-why-grid p {
-  max-width: 680px;
-  margin: 0;
-  color: rgba(11, 11, 15, 0.66);
-  font-size: clamp(15px, 1.18vw, 16px);
-  line-height: 1.8;
-}
-
-.task-map-project-copy .task-map-project-lead {
-  color: #0b0b0f;
-  font-size: 20px;
-  font-weight: 620;
-  line-height: 1.72;
-}
-
-.task-map-project-overview {
-  grid-template-columns: minmax(320px, 0.86fr) minmax(380px, 0.92fr);
-  gap: clamp(54px, 6vw, 88px);
-  align-items: start;
-}
-
-.task-map-project-overview .task-map-project-copy h2 {
-  max-width: 8.2em;
-  font-size: clamp(44px, 4.1vw, 56px);
-}
-
-.task-map-project-copy--body {
-  padding-top: 10px;
-}
-
-.task-map-project-meta {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin: 12px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.task-map-project-meta li {
-  min-height: 46px;
-  padding: 13px 14px;
-  border: 1px solid rgba(11, 11, 15, 0.12);
-  color: rgba(11, 11, 15, 0.72);
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.35;
-  background: rgba(255, 255, 255, 0.36);
-}
-
-.task-map-project-why {
-  gap: clamp(30px, 5vw, 58px);
-}
-
-.task-map-project-why-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
-}
-
-.task-map-project-why-grid article {
-  display: grid;
-  gap: 12px;
-  min-height: 170px;
-  padding: clamp(22px, 3vw, 32px);
-  border-top: 1px solid rgba(11, 11, 15, 0.18);
-  background: rgba(255, 255, 255, 0.22);
-}
-
-.task-map-project-why-grid h3,
-.task-map-project-step__copy h3 {
-  margin: 0;
-  color: #0b0b0f;
-}
-
-.task-map-project-why-grid h3 {
-  font-size: clamp(20px, 2vw, 28px);
-  line-height: 1.12;
-}
-
-.task-map-project-steps {
-  gap: clamp(86px, 8vw, 112px);
-}
-
-.task-map-project-step {
-  display: grid;
-  grid-template-columns: minmax(260px, 0.52fr) minmax(360px, 1fr);
-  gap: clamp(30px, 6vw, 82px);
-  align-items: start;
-}
-
-.task-map-project-step__copy {
-  position: sticky;
-  top: 116px;
-  display: grid;
-  gap: 16px;
-  max-width: 460px;
-}
-
-.task-map-project-step__copy h3 {
-  font-size: clamp(28px, 3.4vw, 42px);
-  line-height: 1.08;
-  letter-spacing: -0.018em;
-}
-
-.task-map-project-step__figure {
-  display: grid;
-  gap: 12px;
-  min-width: 0;
-  margin: 0;
-}
-
-.task-map-project-step__figure figcaption {
-  color: rgba(11, 11, 15, 0.54);
-  font-family: "JetBrains Mono", monospace;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  line-height: 1.25;
-  text-transform: uppercase;
-}
-
-.task-map-project-step__figure img {
-  width: 100%;
-  max-height: 620px;
-  object-fit: contain;
-  border: 1px solid rgba(11, 11, 15, 0.12);
-  background: #f7f7f4;
-}
-
-.task-map-project-status {
-  gap: 16px;
-  max-width: 860px;
-  padding: clamp(26px, 4vw, 42px);
-  border-top: 1px solid rgba(11, 11, 15, 0.22);
-  border-bottom: 1px solid rgba(11, 11, 15, 0.12);
-  background: rgba(255, 255, 255, 0.28);
 }
 
 .task-map-shell {
@@ -2453,14 +1974,6 @@ a {
 .task-ai-panel button:hover {
   background: #f5f5f5;
   color: #0b0b0f;
-}
-
-.task-ai-panel button:disabled,
-.task-ai-panel button:disabled:hover {
-  border-color: rgba(245, 245, 245, 0.18);
-  background: transparent;
-  color: rgba(245, 245, 245, 0.4);
-  cursor: not-allowed;
 }
 
 .task-ai-panel__message {
@@ -2640,20 +2153,6 @@ a {
   position: relative;
 }
 
-.task-map-timeline-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 7px;
-}
-
-.task-map-timeline-actions button {
-  min-height: 32px;
-  padding: 7px 9px;
-  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
-  font-size: 11px;
-}
-
 .task-detail-popover {
   position: absolute;
   z-index: 4;
@@ -2793,50 +2292,6 @@ a {
   fill: #fff;
 }
 
-.mind-map-marquee {
-  fill: rgba(79, 140, 255, 0.12);
-  stroke: #4f8cff;
-  stroke-width: 1.5;
-  stroke-dasharray: 5 4;
-  pointer-events: none;
-}
-
-.mind-map-drag-ghost {
-  pointer-events: none;
-  opacity: 0.65;
-}
-
-.mind-map-drag-ghost rect {
-  fill: rgba(11, 11, 15, 0.85);
-  stroke: #0b0b0f;
-  stroke-width: 1.5;
-}
-
-.mind-map-drag-ghost text {
-  fill: #fff;
-  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
-  font-size: 12px;
-}
-
-.mind-map-node.selected rect {
-  fill: #eef4ff;
-  stroke: #4f8cff;
-  stroke-width: 2.4;
-}
-
-.mind-map-node.selected.active rect {
-  fill: #0b0b0f;
-  stroke: #4f8cff;
-}
-
-.mind-map-node.selected text {
-  fill: #1b3a78;
-}
-
-.mind-map-node.selected.active text {
-  fill: #fff;
-}
-
 .task-map-demo .mind-map-ai-button {
   appearance: none;
   display: inline-flex;
@@ -2877,16 +2332,6 @@ a {
   filter: drop-shadow(0 8px 14px rgba(124, 58, 237, 0.2));
   outline: 0;
   transform: translateY(-1px);
-}
-
-.task-map-demo .mind-map-ai-button:disabled,
-.task-map-demo .mind-map-ai-button:disabled:hover {
-  border-color: rgba(11, 11, 15, 0.16);
-  background: #f1f1ee;
-  color: rgba(11, 11, 15, 0.36);
-  cursor: not-allowed;
-  filter: none;
-  transform: none;
 }
 
 .task-child-preview {
@@ -3093,20 +2538,6 @@ a {
   font-weight: 500;
 }
 
-.task-overview__controls {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-}
-
-.task-overview__controls button {
-  min-height: 27px;
-  padding: 5px 8px;
-  font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
-  font-size: 10px;
-}
-
 .task-overview__rail {
   position: relative;
   height: 36px;
@@ -3135,14 +2566,6 @@ a {
 
 .task-overview__window:active {
   cursor: grabbing;
-}
-
-.task-overview__window:disabled,
-.task-overview__window:disabled:hover {
-  border-color: #0b0b0f;
-  background: #0b0b0f;
-  color: #fff;
-  cursor: default;
 }
 
 .task-overview__window span {
@@ -3180,9 +2603,9 @@ a {
 .task-timeline {
   display: grid;
   gap: 0;
-  max-height: none;
+  max-height: min(72vh, 760px);
   overflow-x: auto;
-  overflow-y: visible;
+  overflow-y: auto;
   border: 1px solid rgba(11, 11, 15, 0.14);
   background: #fff;
   opacity: 1;
@@ -3193,7 +2616,7 @@ a {
   top: 0;
   z-index: 2;
   display: grid;
-  grid-template-columns: repeat(var(--day-count, 10), minmax(40px, 1fr));
+  grid-template-columns: repeat(var(--day-count, 10), minmax(48px, 1fr));
   min-width: var(--timeline-width, 920px);
   padding: 10px 12px;
   border-bottom: 1px solid rgba(11, 11, 15, 0.18);
@@ -3209,10 +2632,11 @@ a {
   min-width: var(--timeline-width, 920px);
   min-height: 50px;
   border-bottom: 1px solid rgba(11, 11, 15, 0.08);
+  cursor: pointer;
 }
 
 .task-timeline__row:hover,
-.task-timeline__row.has-active-task {
+.task-timeline__row.active {
   z-index: 3;
   background: #f0f0ed;
 }
@@ -3228,84 +2652,46 @@ a {
 .task-timeline__track {
   position: relative;
   height: 100%;
-  min-height: 58px;
+  min-height: 50px;
   background-image: linear-gradient(to right, rgba(11, 11, 15, 0.07) 1px, transparent 1px);
   background-size: calc(100% / var(--day-count, 10)) 100%;
 }
 
 .task-timeline__bar {
   position: absolute;
-  top: 15px;
-  height: 30px;
+  top: 14px;
+  bottom: 12px;
   min-width: 28px;
   overflow: visible;
-  border: 1px solid #0b0b0f;
+  border: 0;
   background: #0b0b0f;
   color: #fff;
+  cursor: grab;
   font-family: "JetBrains Mono", "MiSans", "Alibaba PuHuiTi", monospace;
 }
 
-.task-timeline__bar.active {
-  z-index: 3;
-  outline: 2px solid rgba(11, 11, 15, 0.22);
-  outline-offset: 2px;
-}
-
-.task-timeline__bar-center {
-  position: absolute;
-  inset: 0 13px;
-  min-width: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  cursor: grab;
-}
-
-.task-timeline__bar-center:active {
-  cursor: grabbing;
-}
-
-.task-timeline__resize {
-  position: absolute;
-  z-index: 2;
-  top: -1px;
-  width: 13px;
-  height: 30px;
-  min-height: 30px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  cursor: ew-resize;
-}
-
-.task-timeline__resize::after {
+.task-timeline__bar::before {
   content: "";
   position: absolute;
-  top: 8px;
-  bottom: 8px;
-  width: 2px;
-  background: rgba(255, 255, 255, 0.72);
+  left: 12px;
+  right: 12px;
+  top: -7px;
+  height: 4px;
+  border-top: 1px solid rgba(11, 11, 15, 0.42);
+  border-bottom: 1px solid rgba(11, 11, 15, 0.22);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.16s ease;
 }
 
-.task-timeline__resize--start {
-  left: -1px;
+.task-timeline__bar:hover::before,
+.task-timeline__bar:focus::before,
+.task-timeline__bar:focus-visible::before {
+  opacity: 1;
 }
 
-.task-timeline__resize--start::after {
-  left: 5px;
-}
-
-.task-timeline__resize--end {
-  right: -1px;
-}
-
-.task-timeline__resize--end::after {
-  right: 5px;
-}
-
-.task-timeline__bar.narrow .task-timeline__resize {
-  width: 50%;
+.task-timeline__bar:active {
+  cursor: grabbing;
 }
 
 .task-timeline__bar-title {
@@ -3322,28 +2708,6 @@ a {
   text-overflow: ellipsis;
   white-space: nowrap;
   pointer-events: none;
-}
-
-.task-timeline__dependency {
-  position: absolute;
-  z-index: 1;
-  top: 29px;
-  height: 1px;
-  min-width: 8px;
-  background: rgba(11, 11, 15, 0.58);
-  pointer-events: none;
-}
-
-.task-timeline__dependency::after {
-  content: "";
-  position: absolute;
-  right: -1px;
-  top: -3px;
-  width: 6px;
-  height: 6px;
-  border-right: 1px solid rgba(11, 11, 15, 0.72);
-  border-top: 1px solid rgba(11, 11, 15, 0.72);
-  transform: rotate(45deg);
 }
 
 .task-bar-children {
@@ -3379,37 +2743,28 @@ a {
 }
 
 .task-timeline__bar:hover .task-bar-children,
-.task-timeline__bar:focus-within .task-bar-children {
+.task-timeline__bar:focus .task-bar-children,
+.task-timeline__bar:focus-visible .task-bar-children,
+.task-timeline__row.active .task-bar-children {
   display: block;
 }
 
-.task-timeline__bar.done {
+.task-timeline__row.active .task-timeline__bar,
+.task-timeline__row.hover-related .task-timeline__bar {
+  outline: 2px solid rgba(11, 11, 15, 0.18);
+  outline-offset: 2px;
+}
+
+.task-timeline__row.focus-child .task-timeline__bar {
+  background: #4a4a4a;
+}
+
+.task-timeline__row.done .task-timeline__bar {
   background: rgba(11, 11, 15, 0.42);
 }
 
-.task-timeline__bar.conflict {
+.task-timeline__row.conflict .task-timeline__bar {
   background: #c7472f;
-}
-
-.task-map-panel--gantt:fullscreen,
-.task-map-panel--gantt.is-fullscreen {
-  width: 100vw;
-  height: 100vh;
-  overflow: auto;
-  padding: clamp(18px, 3vw, 42px);
-  background: #f7f7f4;
-}
-
-.task-map-panel--gantt.is-fullscreen {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  box-sizing: border-box;
-}
-
-.task-map-panel--gantt:fullscreen .task-timeline,
-.task-map-panel--gantt.is-fullscreen .task-timeline {
-  max-height: calc(100vh - 214px);
 }
 
 .code-stack {
@@ -3979,108 +3334,6 @@ a {
     text-align: center;
   }
 
-  .task-map-demo__intro {
-    grid-template-columns: 1fr;
-    align-items: start;
-    gap: 18px;
-  }
-
-  .task-map-demo__status {
-    grid-template-columns: 1fr;
-  }
-
-  .task-map-demo__status span + span {
-    border-top: 1px solid rgba(11, 11, 15, 0.14);
-    border-left: 0;
-  }
-
-  .task-map-product-link,
-  .task-map-demo__actions button {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .task-map-story__intro {
-    padding: 18px 0 12px;
-  }
-
-  .task-map-story__intro h2 {
-    max-width: 9em;
-    font-size: clamp(42px, 13vw, 72px);
-  }
-
-  .task-map-story__process {
-    padding: 18px;
-  }
-
-  .task-map-story__progress {
-    max-width: none;
-  }
-
-  .task-map-story__viewer {
-    min-height: 380px;
-  }
-
-  .task-map-story__screen {
-    width: min(540px, 82vw);
-  }
-
-  .task-map-story__screen.previous {
-    transform: translate(calc(-50% - 120px), calc(-50% + 38px)) scale(0.68);
-  }
-
-  .task-map-story__screen.next {
-    transform: translate(calc(-50% + 130px), calc(-50% + 52px)) scale(0.64);
-  }
-
-  .task-map-story__single-copy {
-    flex-direction: column;
-    min-height: 180px;
-    gap: 10px;
-  }
-
-  .task-map-project-story {
-    gap: 78px;
-    margin-top: 76px;
-  }
-
-  .task-map-project-overview,
-  .task-map-project-step {
-    grid-template-columns: 1fr;
-  }
-
-  .task-map-project-copy h2,
-  .task-map-project-status h2 {
-    font-size: clamp(38px, 12vw, 56px);
-    line-height: 1.02;
-  }
-
-  .task-map-project-copy .task-map-project-lead {
-    font-size: 18px;
-  }
-
-  .task-map-project-meta,
-  .task-map-project-why-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .task-map-project-why-grid article {
-    min-height: 0;
-  }
-
-  .task-map-project-steps {
-    gap: 72px;
-  }
-
-  .task-map-project-step__copy {
-    position: static;
-    max-width: 680px;
-  }
-
-  .task-map-project-step__figure img {
-    max-height: none;
-  }
-
   .output-gallery {
     gap: 18px;
     margin-top: 34px;
@@ -4157,49 +3410,6 @@ a {
   }
 }
 
-@media (max-width: 780px) {
-  .ai-workflow-step {
-    grid-template-columns: minmax(0, 1fr);
-    min-height: 0;
-  }
-
-  .ai-workflow-step--fusion {
-    grid-template-rows: auto;
-  }
-
-  .ai-workflow-column {
-    width: 100%;
-    padding: 16px;
-  }
-
-  .ai-workflow-column--input {
-    border-right: 0;
-    border-bottom: 1px solid rgba(11, 11, 15, 0.16);
-  }
-
-  .ai-export-panel {
-    grid-column: 1;
-    width: 100%;
-    padding: 16px;
-  }
-
-  .ai-workflow-assets--grid {
-    grid-template-columns: 1fr;
-  }
-
-  .ai-fusion-toolrow {
-    gap: 8px;
-  }
-
-  .ai-fusion-toolrow button {
-    flex: 1 1 138px;
-  }
-
-  .ai-fusion-connector {
-    display: none;
-  }
-}
-
 @media (max-width: 420px) {
   .site-header,
   .site-header--compact {
@@ -4235,24 +3445,6 @@ a {
 
   .project-card__title {
     font-size: 12px;
-  }
-
-  .task-map-project-story {
-    gap: 66px;
-    margin-top: 66px;
-  }
-
-  .task-map-project-copy h2,
-  .task-map-project-status h2 {
-    font-size: clamp(34px, 12vw, 44px);
-  }
-
-  .task-map-project-step__copy h3 {
-    font-size: clamp(26px, 9vw, 34px);
-  }
-
-  .task-map-project-status {
-    padding: 22px 18px;
   }
 
   .embed-panel iframe {
